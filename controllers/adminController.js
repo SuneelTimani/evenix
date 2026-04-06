@@ -14,6 +14,7 @@ const { detectChurn } = require("../utils/ml/churnDetection");
 const twilio = require("twilio");
 const { withRetry, createCircuitBreaker } = require("../utils/resilience");
 const { logAdminAction } = require("../utils/audit");
+const { calculateAttendeeReputation } = require("../utils/reputation");
 
 const hasTwilioCreds =
   process.env.TWILIO_ACCOUNT_SID &&
@@ -50,6 +51,25 @@ function buildPageMeta({ page, pageSize, total }) {
     hasPrev: page > 1,
     hasNext: page < totalPages
   };
+}
+
+async function buildUserReputationMap(userIds) {
+  const ids = [...new Set((Array.isArray(userIds) ? userIds : []).map((id) => String(id || "")).filter(Boolean))];
+  if (!ids.length) return new Map();
+
+  const history = await Booking.find({ userId: { $in: ids } })
+    .select("userId status date createdAt updatedAt eventId")
+    .populate("eventId", "date")
+    .lean();
+
+  const grouped = new Map();
+  history.forEach((row) => {
+    const key = String(row.userId || "");
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(row);
+  });
+
+  return new Map(ids.map((id) => [id, calculateAttendeeReputation(grouped.get(id) || [])]));
 }
 
 function formatWeekDelta(current, previous) {
@@ -364,7 +384,12 @@ exports.getAllBookings = async (req, res) => {
       .limit(pageSize)
       .populate("userId", "name email role")
       .populate("eventId", "title date location category");
-    res.json({ items: bookings, pagination: buildPageMeta({ page, pageSize, total }) });
+    const reputationMap = await buildUserReputationMap(bookings.map((row) => row.userId?._id || row.userId));
+    const items = bookings.map((booking) => ({
+      ...booking.toObject(),
+      attendeeReputation: reputationMap.get(String(booking.userId?._id || booking.userId || "")) || calculateAttendeeReputation([])
+    }));
+    res.json({ items, pagination: buildPageMeta({ page, pageSize, total }) });
   } catch (err) {
     adminServerError(res, "ADMIN_BOOKINGS_LIST_FAILED", "Failed to load bookings");
   }

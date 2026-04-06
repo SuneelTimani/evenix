@@ -50,7 +50,30 @@
       outline: 2px solid var(--brand-primary);
       outline-offset: 2px;
     }
-    .page-shell { max-width: 1200px; margin: 0 auto; padding: 24px 20px 96px; }
+    .page-shell { max-width: 1200px; margin: 0 auto; padding: 24px 20px 96px; position: relative; overflow-x: clip; }
+    .page-shell::before,
+    .page-shell::after {
+      content: "";
+      position: fixed;
+      pointer-events: none;
+      filter: blur(84px);
+      opacity: 0.58;
+      z-index: 0;
+    }
+    .page-shell::before {
+      top: 5rem;
+      left: -8rem;
+      width: 20rem;
+      height: 20rem;
+      background: rgba(124, 106, 247, 0.16);
+    }
+    .page-shell::after {
+      top: 16rem;
+      right: -6rem;
+      width: 18rem;
+      height: 18rem;
+      background: rgba(245, 158, 11, 0.11);
+    }
     .nav-shell,.surface-card,.hero-shell,.event-card,.widget-shell,dialog {
       border: 1px solid var(--border-default);
       background: rgba(13, 17, 23, 0.88);
@@ -69,7 +92,7 @@
     }
     .display-title { margin: 0; font-family: var(--font-display); font-size: clamp(2.8rem, 6vw, 4.8rem); line-height: 1.02; font-weight: 400; letter-spacing: -0.03em; }
     .eyebrow { color: var(--text-secondary); font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; }
-    .hero-grid { position: relative; z-index: 1; display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 32px; padding: 40px; align-items: end; }
+    .hero-grid { position: relative; z-index: 1; display: grid; grid-template-columns: 1.18fr 0.82fr; gap: 32px; padding: 48px; align-items: end; }
     .hero-preview { min-height: 360px; border-radius: 24px; overflow: hidden; border: 1px solid var(--border-default); background: linear-gradient(135deg, rgba(124,106,247,0.26), rgba(17,24,39,0.98)); position: relative; display: grid; align-items: end; }
     .hero-preview img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
     .hero-preview::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,8,15,0.1), rgba(5,8,15,0.84)); }
@@ -79,7 +102,7 @@
     .avatar-stack span:first-child { margin-left: 0; }
     .pill { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 999px; padding: 8px 12px; border: 1px solid var(--border-strong); color: var(--text-primary); background: rgba(255,255,255,0.03); }
     .layout-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(330px, 0.9fr); gap: 24px; margin-top: 28px; }
-    .surface-card { border-radius: 22px; padding: 24px; }
+    .surface-card { position: relative; z-index: 1; border-radius: 22px; padding: 24px; }
     .section-title { margin: 0; font-size: 1.2rem; font-weight: 600; }
     .event-list { display: grid; gap: 18px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 18px; }
     .event-card { border-radius: 18px; overflow: hidden; transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s; }
@@ -99,14 +122,14 @@
     .ticket-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
     .ticket-chip { border-radius: 999px; padding: 6px 10px; background: rgba(255,255,255,0.04); color: var(--text-secondary); font-size: 0.76rem; border: 1px solid rgba(255,255,255,0.05); }
     .card-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
-    .btn-primary,.btn-ghost,.btn-subtle { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border-radius: 12px; padding: 10px 16px; transition: transform 0.15s, background 0.15s, border-color 0.15s, opacity 0.15s; border: 1px solid transparent; }
+    .btn-primary,.btn-ghost,.btn-subtle { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border-radius: 12px; padding: 11px 18px; transition: transform 0.15s, background 0.15s, border-color 0.15s, opacity 0.15s; border: 1px solid transparent; }
     .btn-primary { background: var(--brand-primary); color: white; box-shadow: 0 0 20px var(--brand-glow); }
     .btn-primary:hover { transform: translateY(-1px); opacity: 0.94; }
     .btn-ghost { background: transparent; border-color: var(--border-strong); color: var(--text-primary); }
     .btn-ghost:hover { background: var(--bg-hover); border-color: var(--border-brand); }
     .btn-subtle { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.04); color: var(--text-primary); }
     .btn-subtle:hover { background: rgba(255,255,255,0.08); }
-    .widget-shell { position: sticky; top: calc(var(--nav-offset, 0px) + 20px); border-radius: 22px; padding: 24px; height: fit-content; }
+    .widget-shell { position: sticky; top: calc(var(--nav-offset, 0px) + 20px); z-index: 1; border-radius: 22px; padding: 24px; height: fit-content; }
     .field { display: grid; gap: 8px; margin-top: 14px; }
     .field label { font-size: 0.75rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-secondary); }
     .field input,.field select { width: 100%; border-radius: 12px; padding: 12px 14px; border: 1px solid var(--border-default); background: var(--bg-elevated); color: var(--text-primary); }
@@ -177,7 +200,7 @@
           <div class="field"><label for="attendeeEmail">Attendee Email</label><input id="attendeeEmail" type="email" placeholder="you@example.com"></div>
           <div class="field"><label for="attendeeWhatsApp">WhatsApp</label><input id="attendeeWhatsApp" type="text" placeholder="+15551234567 (optional)"></div>
           <div class="field"><label for="paymentMethod">Payment</label><select id="paymentMethod"><option value="stripe">Pay with Stripe (Test)</option><option value="card">Direct Confirm (No Gateway)</option></select></div>
-          <div class="trust-list"><div>Secure payment · Instant confirmation</div><div id="cancelWindowText">Free cancellation until event policy cutoff</div><div id="transferWindowText">Transfer available before transfer window closes</div></div>
+          <div class="trust-list"><div>Secure payment - Instant confirmation</div><div id="cancelWindowText">Free cancellation until event policy cutoff</div><div id="transferWindowText">Transfer available before transfer window closes</div></div>
           <button type="submit" class="btn-primary mt-5 w-full">Book now</button>
         </form>
         <p id="bookingMsg" class="mt-4 text-sm text-slate-300"></p>
@@ -400,6 +423,7 @@
               <div class="mt-4 space-y-2 text-sm text-slate-400">
                 <div>${escapeHtml(e.location || "TBD")} · ${escapeHtml(e.category || "Other")}</div>
                 <div>${escapeHtml(formatDateLocal(e.date))}</div>
+                ${e?.recurringSeries?.enabled ? `<div class="text-emerald-300">${escapeHtml(e.recurringSeries.label || "Recurring series")} · session ${escapeHtml(e.recurringSeries.instanceNumber || 1)}/${escapeHtml(e.recurringSeries.count || 1)}</div>` : ""}
                 <div class="text-amber-300">From $${escapeHtml(formatPrice(e.lowestTicketPrice || 0))} · ${escapeHtml(e.dynamicPricing?.label || "Dynamic pricing")}</div>
                 <div class="tiny">Cancel window ${Number(e.cancelWindowHoursBefore ?? 24)}h · Transfer ${Number(e.transferWindowHoursBefore ?? 2)}h before event</div>
               </div>

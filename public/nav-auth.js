@@ -292,7 +292,7 @@
   }
 
   function baseLogo() {
-    return '<a href="/" class="ea-nav-logo" aria-label="Evenix home"><img src="/assets/web-logo.png" alt="" class="ea-nav-logo-img" aria-hidden="true"><div class="ea-nav-logo-text"><span class="ea-nav-brand-name">Evenix</span><span class="ea-nav-brand-sub">Discover � Book � Attend</span></div></a>';
+    return '<a href="/" class="ea-nav-logo" aria-label="Evenix home"><img src="/assets/web-logo.png" alt="" class="ea-nav-logo-img" aria-hidden="true"><div class="ea-nav-logo-text"><span class="ea-nav-brand-name">Evenix</span><span class="ea-nav-brand-sub">Discover ? Book ? Attend</span></div></a>';
   }
 
   function resolveMinimalContext() {

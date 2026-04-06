@@ -196,6 +196,31 @@
       font-size: 0.9rem;
       line-height: 1.6;
     }
+    .weekday-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .weekday-chip {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: border-color .15s ease, background .15s ease, color .15s ease;
+    }
+    .weekday-chip input { display: none; }
+    .weekday-chip:has(input:checked) {
+      border-color: rgba(124,106,247,0.45);
+      background: rgba(124,106,247,0.12);
+      color: #ddd6fe;
+    }
+    .recurrence-panel[hidden] { display: none; }
     @media (max-width: 980px) {
       .layout { grid-template-columns: 1fr; }
       .side-card { position: static; }
@@ -303,6 +328,41 @@
             </div>
 
             <div class="section-block">
+              <div class="section-title">Recurring Schedule</div>
+              <div class="stack">
+                <label class="section-meta" style="display:flex;align-items:center;gap:10px;min-height:52px;padding:0 14px;border:1px solid rgba(255,255,255,0.06);border-radius:14px;background:rgba(255,255,255,0.02);">
+                  <input id="recurrenceEnabled" type="checkbox" class="rounded border-slate-700 bg-slate-900">
+                  Make this a recurring event series
+                </label>
+                <div id="recurrencePanel" class="stack recurrence-panel" hidden>
+                  <div class="grid-3">
+                    <select id="recurrenceFrequency">
+                      <option value="weekly" selected>Weekly</option>
+                      <option value="daily">Daily</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                    <input type="number" id="recurrenceInterval" min="1" max="12" value="1" placeholder="Repeat every">
+                    <input type="number" id="recurrenceCount" min="2" max="52" value="8" placeholder="Occurrences">
+                  </div>
+                  <input type="date" id="recurrenceUntil" placeholder="End date (optional)">
+                  <div id="recurrenceWeekdaysWrap" class="stack">
+                    <p class="section-meta" style="margin:0;">Choose the weekdays for this series. The first event date is always included.</p>
+                    <div class="weekday-grid">
+                      <label class="weekday-chip"><input type="checkbox" value="0" data-recurrence-weekday>Sun</label>
+                      <label class="weekday-chip"><input type="checkbox" value="1" data-recurrence-weekday>Mon</label>
+                      <label class="weekday-chip"><input type="checkbox" value="2" data-recurrence-weekday>Tue</label>
+                      <label class="weekday-chip"><input type="checkbox" value="3" data-recurrence-weekday>Wed</label>
+                      <label class="weekday-chip"><input type="checkbox" value="4" data-recurrence-weekday>Thu</label>
+                      <label class="weekday-chip"><input type="checkbox" value="5" data-recurrence-weekday>Fri</label>
+                      <label class="weekday-chip"><input type="checkbox" value="6" data-recurrence-weekday>Sat</label>
+                    </div>
+                  </div>
+                  <p class="section-meta">Creates one shared series with separate bookable dates. Max 52 instances per series.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-block">
               <div class="section-title">Optional Notifications</div>
               <input type="text" id="whatsappTo" placeholder="WhatsApp Number (+15551234567) optional">
             </div>
@@ -331,9 +391,19 @@
     const token = localStorage.getItem("token");
     if (!token) window.location.href = "/login.html";
     let currentCoverImage = "";
+    const recurrenceEnabledEl = document.getElementById("recurrenceEnabled");
+    const recurrencePanelEl = document.getElementById("recurrencePanel");
+    const recurrenceFrequencyEl = document.getElementById("recurrenceFrequency");
+    const recurrenceWeekdaysWrapEl = document.getElementById("recurrenceWeekdaysWrap");
 
     function authHeaders(extra = {}) {
       return { Authorization: token, ...extra };
+    }
+
+    function syncRecurrenceUi() {
+      const enabled = recurrenceEnabledEl.checked;
+      recurrencePanelEl.hidden = !enabled;
+      recurrenceWeekdaysWrapEl.hidden = recurrenceFrequencyEl.value !== "weekly";
     }
 
     function setCoverPreview(src) {
@@ -397,6 +467,19 @@
         whatsappTo: document.getElementById("whatsappTo").value.trim()
       };
 
+      if (recurrenceEnabledEl.checked) {
+        payload.recurrence = {
+          enabled: true,
+          frequency: recurrenceFrequencyEl.value,
+          interval: Number(document.getElementById("recurrenceInterval").value || 1),
+          count: Number(document.getElementById("recurrenceCount").value || 0),
+          until: document.getElementById("recurrenceUntil").value || "",
+          weekdays: Array.from(document.querySelectorAll("[data-recurrence-weekday]:checked")).map((el) => Number(el.value))
+        };
+        if (!payload.recurrence.until) delete payload.recurrence.until;
+        if (!payload.recurrence.count) delete payload.recurrence.count;
+      }
+
       const standardPrice = Number(document.getElementById("standardPrice").value || 0);
       const standardQty = Number(document.getElementById("standardQty").value || 0);
       const vipPrice = Number(document.getElementById("vipPrice").value || 0);
@@ -435,11 +518,15 @@
 
       msg.classList.remove("text-rose-300");
       msg.classList.add("text-emerald-300");
-      msg.textContent = "Event created successfully.";
-      showToast("Event created successfully.", "success");
+      const createdCount = Number((await res.clone().json().catch(() => ({})))?.generatedInstances || 1);
+      msg.textContent = createdCount > 1
+        ? `Recurring series created successfully (${createdCount} instances).`
+        : "Event created successfully.";
+      showToast(msg.textContent, "success");
       e.target.reset();
       currentCoverImage = "";
       setCoverPreview("");
+      syncRecurrenceUi();
       setTimeout(() => {
         window.location.href = "/admin.html?created=1";
       }, 500);
@@ -480,13 +567,16 @@
       setCoverPreview("");
     });
 
+    recurrenceEnabledEl.addEventListener("change", syncRecurrenceUi);
+    recurrenceFrequencyEl.addEventListener("change", syncRecurrenceUi);
+
+    syncRecurrenceUi();
     requireAdmin();
   </script>
   <script src="footer.js"></script>
   <script src="nav-auth.js?v=20260302a"></script>
 </body>
 </html>
-
 
 
 

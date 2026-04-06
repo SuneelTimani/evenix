@@ -8,6 +8,11 @@ const { notifyAdminEventCreated } = require("../utils/notifications");
 const { logAdminAction } = require("../utils/audit");
 const { subscribe, publish } = require("../utils/commentStream");
 const { decorateEventDynamicPricing } = require("../utils/dynamicPricing");
+const {
+  MAX_RECURRING_OCCURRENCES,
+  normalizeRecurrenceInput,
+  generateRecurringDates
+} = require("../utils/recurrence");
 
 // ─── ML engine (graceful fallback if files not yet in place) ─────────────────
 let getRecommendations = null;
@@ -53,6 +58,79 @@ function sanitizeCoverImage(rawValue) {
   }
 }
 
+function buildRecurrenceFields(config = {}, overrides = {}) {
+  const enabled = Boolean(config?.enabled);
+  return {
+    recurrenceEnabled: enabled,
+    recurrenceSeriesId: overrides.recurrenceSeriesId || null,
+    recurrenceParentId: overrides.recurrenceParentId || null,
+    recurrenceIsRoot: Boolean(overrides.recurrenceIsRoot),
+    recurrenceInstanceNumber: Number(overrides.recurrenceInstanceNumber || 1),
+    recurrenceFrequency: enabled ? config.frequency : null,
+    recurrenceInterval: enabled ? Number(config.interval || 1) : 1,
+    recurrenceCount: enabled ? (config.count || null) : null,
+    recurrenceUntil: enabled && config.until ? new Date(config.until) : null,
+    recurrenceWeekdays: enabled ? (Array.isArray(config.weekdays) ? config.weekdays : []) : [],
+    recurrenceLabel: enabled ? String(config.label || "") : ""
+  };
+}
+
+function buildSeriesMeta(event) {
+  const enabled = Boolean(event?.recurrenceEnabled && (event?.recurrenceSeriesId || event?._id));
+  const seriesId = enabled
+    ? String(event?.recurrenceSeriesId || event?._id || "")
+    : "";
+  const totalOccurrences = Number(event?.recurrenceCount || 0) || 1;
+  return {
+    enabled,
+    seriesId,
+    isRoot: Boolean(event?.recurrenceIsRoot),
+    instanceNumber: Number(event?.recurrenceInstanceNumber || 1),
+    frequency: enabled ? String(event?.recurrenceFrequency || "") : "",
+    interval: enabled ? Number(event?.recurrenceInterval || 1) : 1,
+    count: totalOccurrences,
+    until: event?.recurrenceUntil || null,
+    weekdays: Array.isArray(event?.recurrenceWeekdays) ? event.recurrenceWeekdays : [],
+    label: enabled ? String(event?.recurrenceLabel || "") : ""
+  };
+}
+
+function decorateEventForClient(event) {
+  const base = decorateEventDynamicPricing(event);
+  return {
+    ...base,
+    recurringSeries: buildSeriesMeta(event)
+  };
+}
+
+function serializeCommentRow(row) {
+  return {
+    _id: row._id,
+    eventId: row.eventId,
+    parentId: row.parentId || null,
+    userId: row.userId,
+    userName: row.userName,
+    userProfileImage: row.userProfileImage || "",
+    text: row.text,
+    contentType: row.contentType || "comment",
+    qnaStatus: row.qnaStatus || "open",
+    answeredAt: row.answeredAt || null,
+    answeredBy: row.answeredBy || null,
+    createdAt: row.createdAt,
+    reportCount: Array.isArray(row.reports) ? row.reports.length : 0,
+    helpfulCount: Array.isArray(row.helpfulVotes) ? row.helpfulVotes.length : 0
+  };
+}
+
+async function canModerateEventQna(reqUser, eventId) {
+  const event = await Event.findOne({ _id: eventId, isDeleted: { $ne: true } }).select("createdBy");
+  if (!event) return { ok: false, error: "Event not found", status: 404 };
+  const isOwner = String(event.createdBy || "") === String(reqUser?.id || "");
+  const isAdmin = String(reqUser?.role || "").toLowerCase() === "admin";
+  if (!isOwner && !isAdmin) return { ok: false, error: "Not allowed to manage Q&A for this event", status: 403 };
+  return { ok: true, event };
+}
+
 exports.getEvents = async (req, res) => {
   try {
     const { category, status, limit, creatorId } = req.query;
@@ -76,7 +154,7 @@ exports.getEvents = async (req, res) => {
     if (safeLimit) query = query.limit(safeLimit);
 
     const events = await query.lean();
-    res.json(events.map(decorateEventDynamicPricing));
+    res.json(events.map(decorateEventForClient));
   } catch (err) {
     serverError(res, "EVENT_LIST_FAILED", "Failed to load events");
   }
@@ -98,15 +176,15 @@ exports.getPersonalizedRecommendations = async (req, res) => {
         Booking.find({ userId })
           .populate("eventId", "title description category location organizer date status seatsBooked capacity")
           .lean(),
-        Booking.find({}).select("userId eventId status").lean(),
+        Booking.find({}).select("userId eventId recurrenceSeriesId status").lean(),
         Event.find({ status: "published", isDeleted: { $ne: true } })
-          .select("_id title description category location organizer date capacity seatsBooked status")
+          .select("_id title description category location organizer date capacity seatsBooked status recurrenceEnabled recurrenceSeriesId recurrenceIsRoot recurrenceInstanceNumber recurrenceFrequency recurrenceInterval recurrenceCount recurrenceUntil recurrenceWeekdays recurrenceLabel")
           .lean(),
       ]);
 
       const recommendations = getRecommendations({ userId, userBookings, allBookings, allEvents, limit });
 
-      if (recommendations.length) return res.json(recommendations.map(decorateEventDynamicPricing));
+      if (recommendations.length) return res.json(recommendations.map(decorateEventForClient));
 
       // Fallback: popular upcoming events for new users with no history
       const fallback = allEvents
@@ -114,7 +192,7 @@ exports.getPersonalizedRecommendations = async (req, res) => {
         .sort((a, b) => (b.seatsBooked || 0) - (a.seatsBooked || 0))
         .slice(0, limit)
         .map((e) => ({ ...e, recommendationReasons: ["popular"], recommendationScore: 0 }));
-      return res.json(fallback.map(decorateEventDynamicPricing));
+      return res.json(fallback.map(decorateEventForClient));
     }
 
     // ── Rule-based fallback (original logic) ────────────────────────────────
@@ -187,13 +265,13 @@ exports.getPersonalizedRecommendations = async (req, res) => {
       .slice(0, limit)
       .map(({ _score, ...rest }) => rest);
 
-    if (scored.length) return res.json(scored.map(decorateEventDynamicPricing));
+    if (scored.length) return res.json(scored.map(decorateEventForClient));
 
     const fallback = candidates
       .sort((a, b) => Number(b.seatsBooked || 0) - Number(a.seatsBooked || 0))
       .slice(0, limit)
       .map((e) => ({ ...e, recommendationReasons: ["trending"] }));
-    res.json(fallback.map(decorateEventDynamicPricing));
+    res.json(fallback.map(decorateEventForClient));
   } catch {
     serverError(res, "EVENT_RECOMMENDATIONS_FAILED", "Failed to load personalized recommendations");
   }
@@ -230,7 +308,7 @@ exports.getFollowingFeed = async (req, res) => {
       .limit(limit)
       .lean();
 
-    res.json(events.map(decorateEventDynamicPricing));
+    res.json(events.map(decorateEventForClient));
   } catch {
     serverError(res, "EVENT_FOLLOWING_FEED_FAILED", "Failed to load followed creators feed");
   }
@@ -251,7 +329,7 @@ exports.getSavedEvents = async (req, res) => {
     const items = saved
       .filter((row) => row?.eventId && row.eventId.isDeleted !== true)
       .map((row) => ({
-        event: decorateEventDynamicPricing(row.eventId),
+        event: decorateEventForClient(row.eventId),
         reminderHoursBefore: Number(row.reminderHoursBefore || 24),
         savedAt: row.createdAt || null
       }))
@@ -318,12 +396,69 @@ exports.unsaveEventForUser = async (req, res) => {
   }
 };
 
+exports.getEventSeries = async (req, res) => {
+  try {
+    const eventId = String(req.params.id || "").trim();
+    if (!eventId) return res.status(400).json({ error: "Event id is required" });
+
+    const event = await Event.findOne({ _id: eventId, isDeleted: { $ne: true } }).lean();
+    if (!event) return res.status(404).json({ error: "Event not found" });
+
+    const seriesId = event.recurrenceSeriesId || (event.recurrenceEnabled ? event._id : null);
+    if (!seriesId) {
+      return res.json({
+        series: buildSeriesMeta(event),
+        instances: [decorateEventForClient(event)],
+        stats: {
+          totalOccurrences: 1,
+          upcomingCount: new Date(event.date).getTime() >= Date.now() ? 1 : 0,
+          totalBookings: 0,
+          uniqueAttendees: 0
+        }
+      });
+    }
+
+    const instances = await Event.find({
+      recurrenceSeriesId: seriesId,
+      isDeleted: { $ne: true }
+    }).sort({ date: 1 }).lean();
+
+    const eventIds = instances.map((row) => row._id);
+    const bookingStats = eventIds.length
+      ? await Booking.aggregate([
+          { $match: { eventId: { $in: eventIds } } },
+          {
+            $group: {
+              _id: null,
+              totalBookings: { $sum: 1 },
+              attendeeIds: { $addToSet: "$userId" }
+            }
+          }
+        ])
+      : [];
+
+    const seriesStats = bookingStats[0] || {};
+    res.json({
+      series: buildSeriesMeta(instances[0] || event),
+      instances: instances.map(decorateEventForClient),
+      stats: {
+        totalOccurrences: instances.length,
+        upcomingCount: instances.filter((row) => new Date(row.date).getTime() >= Date.now()).length,
+        totalBookings: Number(seriesStats.totalBookings || 0),
+        uniqueAttendees: Array.isArray(seriesStats.attendeeIds) ? seriesStats.attendeeIds.length : 0
+      }
+    });
+  } catch {
+    serverError(res, "EVENT_SERIES_FAILED", "Failed to load recurring series");
+  }
+};
+
 exports.createEvent = async (req, res) => {
   try {
     const {
       title, description, date, location, mapLink, coverImage, organizer,
       category, capacity, ticketTypes, status, waitlistEnabled,
-      cancelWindowHoursBefore, transferWindowHoursBefore, whatsappTo
+      cancelWindowHoursBefore, transferWindowHoursBefore, whatsappTo, recurrence
     } = req.body;
 
     const cleanTitle = sanitizeText(title, { min: 3, max: 120 });
@@ -350,6 +485,10 @@ exports.createEvent = async (req, res) => {
 
     const parsedDate = new Date(date);
     if (Number.isNaN(parsedDate.getTime())) return res.status(400).json({ error: "date must be a valid ISO date string" });
+    const recurrenceConfig = normalizeRecurrenceInput(recurrence, parsedDate);
+    if (recurrenceConfig.error) {
+      return res.status(400).json({ error: recurrenceConfig.error });
+    }
 
     const cleanCategory = category ? sanitizeCategory(category) : "Other";
     if (category && !cleanCategory) return res.status(400).json({ error: "Invalid category" });
@@ -392,26 +531,81 @@ exports.createEvent = async (req, res) => {
       return res.status(400).json({ error: "Total ticket quantity cannot exceed event capacity" });
     }
 
-    const event = await Event.create({
-      title: cleanTitle, description: cleanDescription, date: parsedDate,
-      location: cleanLocation, mapLink: cleanMapLink, coverImage: cleanCoverImage || "", organizer: cleanOrganizer,
-      createdBy: req.user?.id || null, category: cleanCategory, capacity: cleanCapacity,
-      ticketTypes: cleanTicketTypes, waitlistEnabled: cleanWaitlistEnabled,
-      cancelWindowHoursBefore: cleanCancelWindow, transferWindowHoursBefore: cleanTransferWindow,
+    const occurrenceDates = generateRecurringDates(parsedDate, recurrenceConfig);
+    if (occurrenceDates.length > MAX_RECURRING_OCCURRENCES) {
+      return res.status(400).json({ error: `Recurring events can create at most ${MAX_RECURRING_OCCURRENCES} instances` });
+    }
+
+    const eventSeed = {
+      title: cleanTitle,
+      description: cleanDescription,
+      location: cleanLocation,
+      mapLink: cleanMapLink,
+      coverImage: cleanCoverImage || "",
+      organizer: cleanOrganizer,
+      createdBy: req.user?.id || null,
+      category: cleanCategory,
+      capacity: cleanCapacity,
+      ticketTypes: cleanTicketTypes,
+      waitlistEnabled: cleanWaitlistEnabled,
+      cancelWindowHoursBefore: cleanCancelWindow,
+      transferWindowHoursBefore: cleanTransferWindow,
       status: cleanStatus
+    };
+
+    const rootEvent = await Event.create({
+      ...eventSeed,
+      date: occurrenceDates[0],
+      ...buildRecurrenceFields(recurrenceConfig, {
+        recurrenceIsRoot: recurrenceConfig.enabled,
+        recurrenceInstanceNumber: 1
+      })
     });
 
+    if (recurrenceConfig.enabled) {
+      rootEvent.recurrenceSeriesId = rootEvent._id;
+      rootEvent.recurrenceParentId = rootEvent._id;
+      rootEvent.recurrenceCount = occurrenceDates.length;
+      await rootEvent.save();
+
+      const children = occurrenceDates.slice(1).map((occurrenceDate, index) => ({
+        ...eventSeed,
+        date: occurrenceDate,
+        ...buildRecurrenceFields(recurrenceConfig, {
+          recurrenceSeriesId: rootEvent._id,
+          recurrenceParentId: rootEvent._id,
+          recurrenceIsRoot: false,
+          recurrenceInstanceNumber: index + 2
+        }),
+        recurrenceCount: occurrenceDates.length
+      }));
+      if (children.length) {
+        await Event.insertMany(children);
+      }
+    }
+
     await logAdminAction(req, {
-      action: "event_create", targetType: "event", targetId: event._id,
-      details: { title: event.title, date: event.date, status: event.status }
+      action: "event_create",
+      targetType: "event",
+      targetId: rootEvent._id,
+      details: {
+        title: rootEvent.title,
+        date: rootEvent.date,
+        status: rootEvent.status,
+        recurrence: recurrenceConfig.enabled ? {
+          frequency: recurrenceConfig.frequency,
+          count: occurrenceDates.length,
+          interval: recurrenceConfig.interval
+        } : null
+      }
     });
 
     Promise.allSettled([
       notifyAdminEventCreated({
-        eventTitle: event.title,
-        eventDate: event.date ? new Date(event.date).toISOString() : "TBD",
-        location: event.location || "TBD",
-        organizer: event.organizer || "TBD"
+        eventTitle: rootEvent.title,
+        eventDate: rootEvent.date ? new Date(rootEvent.date).toISOString() : "TBD",
+        location: rootEvent.location || "TBD",
+        organizer: rootEvent.organizer || "TBD"
       })
     ]);
 
@@ -420,13 +614,17 @@ exports.createEvent = async (req, res) => {
         return res.status(400).json({ error: "whatsappTo must be in E.164 format, e.g. +15551234567" });
       }
       await twilioClient.messages.create({
-        body: `New Event Created: ${event.title}`,
+        body: `New Event Created: ${rootEvent.title}`,
         from: process.env.TWILIO_WHATSAPP_FROM,
         to: `whatsapp:${whatsappTo}`
       });
     }
 
-    res.status(201).json(event);
+    res.status(201).json({
+      ...rootEvent.toObject(),
+      recurringSeries: buildSeriesMeta(rootEvent),
+      generatedInstances: occurrenceDates.length
+    });
   } catch (err) {
     serverError(res, "EVENT_CREATE_FAILED", "Failed to create event");
   }
@@ -552,18 +750,12 @@ exports.getEventComments = async (req, res) => {
 
     const parsedLimit = Number(req.query.limit);
     const limit = Number.isInteger(parsedLimit) && parsedLimit > 0 ? Math.min(parsedLimit, 120) : 50;
-    const comments = await EventComment.find({ eventId, isHidden: { $ne: true } })
+    const comments = await EventComment.find({ eventId, contentType: "comment", isHidden: { $ne: true } })
       .sort({ createdAt: 1 })
       .limit(limit)
       .lean();
 
-    const normalized = comments.map((c) => ({
-      _id: c._id, eventId: c.eventId, parentId: c.parentId || null,
-      userId: c.userId, userName: c.userName, userProfileImage: c.userProfileImage || "",
-      text: c.text, createdAt: c.createdAt,
-      reportCount: Array.isArray(c.reports) ? c.reports.length : 0,
-      helpfulCount: Array.isArray(c.helpfulVotes) ? c.helpfulVotes.length : 0
-    }));
+    const normalized = comments.map(serializeCommentRow);
 
     const topLevel = normalized.filter((c) => !c.parentId);
     const repliesByParent = new Map();
@@ -585,6 +777,36 @@ exports.getEventComments = async (req, res) => {
     res.json(out);
   } catch {
     serverError(res, "EVENT_COMMENTS_LIST_FAILED", "Failed to load comments");
+  }
+};
+
+exports.getEventQna = async (req, res) => {
+  try {
+    const eventId = String(req.params.id || "").trim();
+    if (!eventId) return res.status(400).json({ error: "Event id is required" });
+
+    const event = await Event.findOne({ _id: eventId, isDeleted: { $ne: true } }).select("_id status");
+    if (!event) return res.status(404).json({ error: "Event not found" });
+
+    const parsedLimit = Number(req.query.limit);
+    const limit = Number.isInteger(parsedLimit) && parsedLimit > 0 ? Math.min(parsedLimit, 100) : 30;
+    const status = String(req.query.status || "").trim().toLowerCase();
+    const query = { eventId, contentType: "qna", parentId: null, isHidden: { $ne: true } };
+    if (["open", "answered", "dismissed"].includes(status)) query.qnaStatus = status;
+
+    const rows = await EventComment.find(query).lean();
+    const items = rows
+      .map(serializeCommentRow)
+      .sort((a, b) => {
+        const voteDiff = Number(b.helpfulCount || 0) - Number(a.helpfulCount || 0);
+        if (voteDiff !== 0) return voteDiff;
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      })
+      .slice(0, limit);
+
+    res.json(items);
+  } catch {
+    serverError(res, "EVENT_QNA_LIST_FAILED", "Failed to load live Q&A");
   }
 };
 
@@ -647,16 +869,44 @@ exports.addEventComment = async (req, res) => {
       userName: user.name || "User", userProfileImage: user.profileImage || "", text
     });
 
-    const out = {
-      _id: comment._id, eventId: comment.eventId, parentId: comment.parentId || null,
-      userId: comment.userId, userName: comment.userName, userProfileImage: comment.userProfileImage,
-      text: comment.text, createdAt: comment.createdAt, reportCount: 0, helpfulCount: 0
-    };
+    const out = serializeCommentRow(comment.toObject());
 
     publish(eventId, "comment_created", out);
     res.status(201).json(out);
   } catch {
     serverError(res, "EVENT_COMMENT_CREATE_FAILED", "Failed to add comment");
+  }
+};
+
+exports.addEventQnaQuestion = async (req, res) => {
+  try {
+    const eventId = String(req.params.id || "").trim();
+    const text = sanitizeText(req.body?.text, { min: 3, max: 280 });
+    if (!eventId || !text) return res.status(400).json({ error: "Valid question text is required (3-280 chars)" });
+
+    const event = await Event.findOne({ _id: eventId, isDeleted: { $ne: true } }).select("_id status");
+    if (!event) return res.status(404).json({ error: "Event not found" });
+    if (event.status === "cancelled") return res.status(400).json({ error: "Live Q&A is disabled for cancelled events" });
+
+    const user = await User.findById(req.user?.id).select("name profileImage");
+    if (!user) return res.status(401).json({ error: "User not found" });
+
+    const question = await EventComment.create({
+      eventId,
+      userId: user._id,
+      parentId: null,
+      userName: user.name || "User",
+      userProfileImage: user.profileImage || "",
+      text,
+      contentType: "qna",
+      qnaStatus: "open"
+    });
+
+    const out = serializeCommentRow(question.toObject());
+    publish(eventId, "qna_created", out);
+    res.status(201).json(out);
+  } catch {
+    serverError(res, "EVENT_QNA_CREATE_FAILED", "Failed to submit question");
   }
 };
 
@@ -684,11 +934,7 @@ exports.addEventReply = async (req, res) => {
       userName: user.name || "User", userProfileImage: user.profileImage || "", text
     });
 
-    const out = {
-      _id: reply._id, eventId: reply.eventId, parentId: reply.parentId || null,
-      userId: reply.userId, userName: reply.userName, userProfileImage: reply.userProfileImage,
-      text: reply.text, createdAt: reply.createdAt, reportCount: 0, helpfulCount: 0
-    };
+    const out = serializeCommentRow(reply.toObject());
     publish(eventId, "comment_created", out);
     res.status(201).json(out);
   } catch {
@@ -716,13 +962,49 @@ exports.toggleCommentHelpful = async (req, res) => {
 
     const payload = {
       _id: comment._id, eventId: comment.eventId, parentId: comment.parentId || null,
+      contentType: comment.contentType || "comment",
+      qnaStatus: comment.qnaStatus || "open",
       helpfulCount: Array.isArray(comment.helpfulVotes) ? comment.helpfulVotes.length : 0,
       voted: !already
     };
-    publish(eventId, "comment_updated", payload);
+    publish(eventId, comment.contentType === "qna" ? "qna_updated" : "comment_updated", payload);
     res.json(payload);
   } catch {
     serverError(res, "EVENT_COMMENT_HELPFUL_FAILED", "Failed to update helpful vote");
+  }
+};
+
+exports.updateEventQnaStatus = async (req, res) => {
+  try {
+    const eventId = String(req.params.id || "").trim();
+    const questionId = String(req.params.commentId || "").trim();
+    const nextStatus = String(req.body?.status || "").trim().toLowerCase();
+    if (!["open", "answered", "dismissed"].includes(nextStatus)) {
+      return res.status(400).json({ error: "Invalid Q&A status" });
+    }
+
+    const permission = await canModerateEventQna(req.user, eventId);
+    if (!permission.ok) return res.status(permission.status).json({ error: permission.error });
+
+    const question = await EventComment.findOne({
+      _id: questionId,
+      eventId,
+      contentType: "qna",
+      parentId: null,
+      isHidden: { $ne: true }
+    });
+    if (!question) return res.status(404).json({ error: "Question not found" });
+
+    question.qnaStatus = nextStatus;
+    question.answeredAt = nextStatus === "answered" ? new Date() : null;
+    question.answeredBy = nextStatus === "answered" ? req.user.id : null;
+    await question.save();
+
+    const out = serializeCommentRow(question.toObject());
+    publish(eventId, "qna_updated", out);
+    res.json(out);
+  } catch {
+    serverError(res, "EVENT_QNA_STATUS_FAILED", "Failed to update question status");
   }
 };
 

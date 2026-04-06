@@ -5,25 +5,48 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Creator Profile | Evenix</title>
   <link rel="icon" type="image/png" href="/assets/web-logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root { --bg-base:#080b14; --bg-surface:#0d1117; --bg-elevated:#161b27; --bg-hover:#1e2536; --brand-primary:#7c6af7; --brand-glow:rgba(124,106,247,0.15); --brand-accent:#f59e0b; --text-primary:#f0f2f8; --text-secondary:#8892a4; --text-muted:#4a5568; --border-default:rgba(255,255,255,0.07); --border-strong:rgba(255,255,255,0.12); --font-display:"Instrument Serif",serif; --font-body:"DM Sans",sans-serif; }
+    body { margin:0; font-family:var(--font-body); color:var(--text-primary); background:radial-gradient(900px 420px at 8% -8%, rgba(124,106,247,.18), transparent 58%), radial-gradient(720px 340px at 95% 10%, rgba(245,158,11,.1), transparent 52%), linear-gradient(180deg,#060912 0%,#0a0f19 48%,#080b14 100%); }
+    .shell { width:min(1200px, calc(100% - 32px)); margin:0 auto; padding:24px 0 48px; position:relative; overflow-x:clip; }
+    .shell::before, .shell::after { content:""; position:fixed; pointer-events:none; filter:blur(84px); opacity:.55; z-index:0; }
+    .shell::before { top:5rem; left:-8rem; width:20rem; height:20rem; background:rgba(124,106,247,.16); }
+    .shell::after { top:16rem; right:-6rem; width:18rem; height:18rem; background:rgba(245,158,11,.11); }
+    .hero, .card { position:relative; z-index:1; border:1px solid var(--border-default); border-radius:24px; background:linear-gradient(180deg, rgba(13,17,23,.96), rgba(13,17,23,.9)); box-shadow:0 22px 48px rgba(0,0,0,.22); }
+    .hero { margin-top:24px; padding:28px; }
+    .eyebrow { display:inline-flex; padding:7px 12px; border-radius:999px; font-size:.75rem; letter-spacing:.08em; text-transform:uppercase; color:#c4b5fd; background:rgba(124,106,247,.08); border:1px solid rgba(124,106,247,.32); }
+    .title { margin:16px 0 8px; font-family:var(--font-display); font-size:clamp(2.4rem,5vw,3.8rem); line-height:.95; letter-spacing:-.03em; font-weight:400; }
+    .subtitle { margin:0; max-width:58rem; color:var(--text-secondary); line-height:1.7; font-size:.98rem; }
+    .card { padding:24px; transition:border-color .2s ease, transform .2s ease, box-shadow .2s ease; }
+    .card:hover { border-color:var(--border-strong); transform:translateY(-2px); box-shadow:0 0 30px rgba(124,106,247,.08), 0 20px 40px rgba(0,0,0,.3); }
+    @media (max-width:760px){ .shell{width:min(100%, calc(100% - 20px)); padding-top:16px;} .hero{padding:20px; border-radius:22px;} .title{font-size:2.2rem;} }
+  </style>
 </head>
-<body class="min-h-screen bg-slate-950 text-slate-100">
-  <div class="mx-auto max-w-6xl px-4 py-8">
-    <header>
-      <a href="/" class="inline-block rounded-lg border border-slate-700 px-3 py-1.5 text-sm hover:bg-slate-800">Back Home</a>
+<body>
+  <div class="shell">
+    <div data-role-nav></div>
+    <header class="hero">
+      <span class="eyebrow">Creator profile</span>
+      <h1 class="title">Follow the people whose events you actually want to see again.</h1>
+      <p class="subtitle">View public creator details, review published events, and manage follow state directly from this profile page.</p>
     </header>
-
-    <section id="creatorCard" class="mt-6 rounded-xl border border-slate-800 bg-slate-900 p-5">
-      <p class="text-slate-400">Loading creator...</p>
-    </section>
-
-    <section class="mt-6 rounded-xl border border-slate-800 bg-slate-900 p-5">
-      <h2 class="text-lg font-semibold">Events by Creator</h2>
+    <section id="creatorCard" class="mt-6 card"><p class="text-slate-400">Loading creator...</p></section>
+    <section class="mt-6 card">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h2 class="text-2xl font-semibold tracking-tight">Events by Creator</h2>
+          <p class="mt-2 text-sm text-slate-400">Published events from this organizer profile.</p>
+        </div>
+        <a href="/" class="rounded-lg border border-slate-700 px-3 py-1.5 text-sm hover:bg-slate-800">Back Home</a>
+      </div>
       <div id="creatorEvents" class="mt-4 grid gap-3 md:grid-cols-2"></div>
     </section>
   </div>
-
-  <script>
+<script>
     const params = new URLSearchParams(window.location.search);
     const creatorId = String(params.get("id") || "").trim();
     const token = localStorage.getItem("token") || "";
@@ -83,7 +106,7 @@
           <img src="${esc(avatarUrl(creator.profileImage, creator.name))}" alt="creator" class="h-16 w-16 rounded-full object-cover">
           <div class="min-w-0 flex-1">
             <h1 class="text-xl font-semibold">${esc(creator.name || "Creator")}</h1>
-            <p class="text-sm text-slate-400">${esc(creator.role || "user")} â€¢ ${Number(creator.followerCount || 0)} followers â€¢ ${Number(creator.followingCount || 0)} following</p>
+            <p class="text-sm text-slate-400">${esc(creator.role || "user")} · ${Number(creator.followerCount || 0)} followers · ${Number(creator.followingCount || 0)} following</p>
           </div>
           ${token && !isSelf ? `<button id="followBtn" class="rounded-lg border border-cyan-500/40 px-3 py-1.5 text-sm text-cyan-200 hover:bg-slate-800">${isFollowing ? "Unfollow" : "Follow"}</button>` : ""}
         </div>
@@ -98,7 +121,7 @@
             ${eventImageUrl(e) ? `<img src="${esc(eventImageUrl(e))}" alt="${esc(e.title || "Event")}" class="mb-3 h-36 w-full rounded-lg object-cover">` : ""}
             <p class="text-xs text-slate-500">${esc(formatDate(e.date))}</p>
             <h3 class="mt-1 text-base font-semibold">${esc(e.title || "Untitled Event")}</h3>
-            <p class="mt-1 text-sm text-slate-300">${esc(e.location || "TBD")} â€¢ ${esc(e.category || "Other")}</p>
+            <p class="mt-1 text-sm text-slate-300">${esc(e.location || "TBD")} · ${esc(e.category || "Other")}</p>
             <a href="/event-details.html?id=${encodeURIComponent(String(e._id || ""))}" class="mt-2 inline-block rounded-md border border-slate-700 px-2 py-1 text-xs hover:bg-slate-800">Open Event</a>
           </article>
         `).join("");
@@ -124,3 +147,4 @@
   <script src="nav-auth.js?v=20260302a"></script>
 </body>
 </html>
+

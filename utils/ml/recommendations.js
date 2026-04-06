@@ -64,6 +64,10 @@ function eventToVector(event) {
   return buildTermVector(tokens);
 }
 
+function eventIdentity(event) {
+  return String(event?.recurrenceSeriesId || event?._id || "");
+}
+
 // ─── Content-based filtering ──────────────────────────────────────────────────
 
 function contentBasedScores(userEvents, candidateEvents) {
@@ -89,7 +93,7 @@ function collaborativeScores(userId, allBookings, candidateEvents) {
   const userEventsMap = {};
   for (const b of allBookings) {
     const uid = String(b.userId?._id || b.userId || "");
-    const eid = String(b.eventId?._id || b.eventId || "");
+    const eid = String(b.recurrenceSeriesId || b.eventId?.recurrenceSeriesId || b.eventId?._id || b.eventId || "");
     if (!uid || !eid) continue;
     if (!userEventsMap[uid]) userEventsMap[uid] = new Set();
     userEventsMap[uid].add(eid);
@@ -115,7 +119,7 @@ function collaborativeScores(userId, allBookings, candidateEvents) {
   // Score candidates by neighbor weighted votes
   const scores = {};
   for (const event of candidateEvents) {
-    const eid = String(event._id);
+    const eid = eventIdentity(event);
     let score = 0;
     for (const neighbor of topNeighbors) {
       if (neighbor.events.has(eid)) score += neighbor.similarity;
@@ -156,12 +160,12 @@ function recencyBoost(event) {
  */
 function getRecommendations({ userId, userBookings, allBookings, allEvents, limit = 6 }) {
   const attendedIds = new Set(
-    userBookings.map((b) => String(b.eventId?._id || b.eventId || ""))
+    userBookings.map((b) => String(b.recurrenceSeriesId || b.eventId?.recurrenceSeriesId || b.eventId?._id || b.eventId || ""))
   );
 
   const candidates = allEvents.filter(
     (e) =>
-      !attendedIds.has(String(e._id)) &&
+      !attendedIds.has(eventIdentity(e)) &&
       e.status === "published" &&
       new Date(e.date) > new Date()
   );

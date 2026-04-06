@@ -8,6 +8,10 @@ const eventCommentSchema = new mongoose.Schema(
     userName: { type: String, required: true, trim: true, maxlength: 80 },
     userProfileImage: { type: String, default: "" },
     text: { type: String, required: true, trim: true, maxlength: 500 },
+    contentType: { type: String, enum: ["comment", "qna"], default: "comment", index: true },
+    qnaStatus: { type: String, enum: ["open", "answered", "dismissed"], default: "open", index: true },
+    answeredAt: { type: Date, default: null },
+    answeredBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     helpfulVotes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     isHidden: { type: Boolean, default: false, index: true },
     hiddenAt: { type: Date, default: null },
@@ -25,7 +29,8 @@ const eventCommentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-eventCommentSchema.index({ eventId: 1, createdAt: -1 });
+eventCommentSchema.index({ eventId: 1, contentType: 1, createdAt: -1 });
 eventCommentSchema.index({ eventId: 1, parentId: 1, createdAt: 1 });
+eventCommentSchema.index({ eventId: 1, contentType: 1, qnaStatus: 1, createdAt: 1 });
 
 module.exports = mongoose.model("EventComment", eventCommentSchema);

@@ -223,6 +223,7 @@ function renderEvents(events) {
     const imageUrl = getEventImageUrl(event);
     const urgency = getUrgencyBadge(event);
     const detailsUrl = getEventDetailsUrl(event);
+    const recurrenceLabel = String(event?.recurringSeries?.label || "");
     const card = document.createElement("article");
     card.className = "event-card";
     card.innerHTML = `
@@ -240,6 +241,15 @@ function renderEvents(events) {
         </div>
         <p class="event-description">${escapeHtml(event.description || "No description available.")}</p>
         <div class="meta-stack">
+          ${recurrenceLabel ? `
+            <div class="meta-row">
+              <svg viewBox="0 0 24 24" class="h-4 w-4 text-emerald-300" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+                <path d="M3 4v5h5"></path>
+              </svg>
+              <span>${escapeHtml(recurrenceLabel)}</span>
+            </div>
+          ` : ""}
           <div class="meta-row">
             <svg viewBox="0 0 24 24" class="h-4 w-4 text-violet-300" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
               <path d="M8 2v4M16 2v4M3 10h18"></path>

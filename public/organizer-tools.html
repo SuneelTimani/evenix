@@ -224,6 +224,19 @@
             <div id="orgChurnPrediction" class="mt-3 text-sm text-slate-300">Select an event to view churn signals.</div>
           </div>
         </div>
+
+        <div class="mt-4 rounded-lg border border-slate-800 bg-slate-950 p-4">
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <p class="text-xs uppercase tracking-wide text-slate-400">Live Q&A Board</p>
+              <p class="mt-1 text-sm text-slate-300">Questions rank automatically by attendee upvotes.</p>
+            </div>
+            <p id="orgQnaStatus" class="text-xs text-slate-400">Select an event to review live questions.</p>
+          </div>
+          <div id="orgQnaBoard" class="mt-3 grid gap-2">
+            <p class="text-sm text-slate-400">No event selected.</p>
+          </div>
+        </div>
       </section>
 
       <section class="mt-6 rounded-xl border border-slate-800 bg-slate-900 p-4 surface-card">
@@ -293,6 +306,7 @@
     let organizerBookings = [];
     let orgTrendChart = null;
     let orgRevenueChart = null;
+    let qnaStream = null;
 
     function esc(v) {
       return String(v || "").replace(/[&<>"']/g, (s) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[s]));
@@ -422,9 +436,13 @@
       const eventId = document.getElementById("analyticsEventSelect").value;
       const attendanceBox = document.getElementById("orgAttendancePrediction");
       const churnBox = document.getElementById("orgChurnPrediction");
+      const qnaStatus = document.getElementById("orgQnaStatus");
       if (!eventId) {
         attendanceBox.textContent = "Select an event to view attendance prediction.";
         churnBox.textContent = "Select an event to view churn signals.";
+        qnaStatus.textContent = "Select an event to review live questions.";
+        renderOrganizerQna([]);
+        stopQnaStream();
         return;
       }
 
@@ -455,18 +473,97 @@
         const churn = await churnRes.json();
         const summary = churn.summary || {};
         const topRisk = Array.isArray(churn.results) ? churn.results.slice(0, 5) : [];
-        churnBox.innerHTML = `
-          <div class="space-y-2">
-            <p><span class="text-amber-300">At Risk:</span> ${Number(summary.atRiskCount || 0)}</p>
-            <p><span class="text-amber-300">High:</span> ${Number(summary.high || 0)} | <span class="text-amber-300">Medium:</span> ${Number(summary.medium || 0)}</p>
-            <p><span class="text-amber-300">Average Score:</span> ${Number(summary.averageChurnScore || 0)}%</p>
-            ${topRisk.length ? `<div class="mt-3 space-y-2">${topRisk.map((row) => `<div class="rounded border border-slate-800 bg-slate-900 px-3 py-2 text-xs"><span class="font-semibold">${esc(row.userName || row.userEmail || "User")}</span> · ${esc(row.churnRisk || "n/a")} risk · ${Number(row.churnScore || 0)}%</div>`).join("")}</div>` : '<p class="text-slate-400">No at-risk attendees found.</p>'}
-          </div>
-        `;
+        churnBox.innerHTML =           `<div class="space-y-2">            <p><span class="text-amber-300">At Risk:</span> ${Number(summary.atRiskCount || 0)}</p>            <p><span class="text-amber-300">High:</span> ${Number(summary.high || 0)} | <span class="text-amber-300">Medium:</span> ${Number(summary.medium || 0)}</p>            <p><span class="text-amber-300">Average Score:</span> ${Number(summary.averageChurnScore || 0)}%</p>            <p><span class="text-amber-300">Average Reputation:</span> ${Number(summary.averageReputationScore || 0)}/100</p>            ${topRisk.length ? `<div class="mt-3 space-y-2">${topRisk.map((row) => `<div class="rounded border border-slate-800 bg-slate-900 px-3 py-2 text-xs"><span class="font-semibold">${esc(row.userName || row.userEmail || "User")}</span> - ${esc(row.churnRisk || "n/a")} risk - ${Number(row.churnScore || 0)}%<div class="mt-1 text-amber-300">Reputation: ${esc(row.attendeeReputation?.stars || "")} ${esc(row.attendeeReputation?.label || "New attendee")} (${Number(row.attendeeReputation?.score || 0)})</div></div>`).join("")}</div>` : '<p class="text-slate-400">No at-risk attendees found.</p>'}          </div>`;
       } else {
         churnBox.textContent = "Failed to load churn signals.";
       }
+      await loadOrganizerQna();
     }
+
+    function renderOrganizerQna(items) {
+      const board = document.getElementById("orgQnaBoard");
+      if (!Array.isArray(items) || !items.length) {
+        board.innerHTML = '<p class="text-sm text-slate-400">No live questions yet for this event.</p>';
+        return;
+      }
+      board.innerHTML = items.map((row) => `
+        <div class="rounded border border-slate-800 bg-slate-900 px-3 py-3 text-sm">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="font-semibold text-slate-100">${esc(row.userName || row.userEmail || "User")}</p>
+              <p class="mt-1 text-slate-300">${esc(row.text || "")}</p>
+            </div>
+            <div class="text-right">
+              <p class="text-amber-300">${Number(row.helpfulCount || 0)} votes</p>
+              <p class="text-[11px] text-slate-500">${esc(row.qnaStatus || "open")}</p>
+            </div>
+          </div>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button class="rounded border border-emerald-500/40 px-2 py-1 text-xs text-emerald-300 hover:bg-slate-800" onclick="setOrganizerQnaStatus('${encodeURIComponent(String(row._id || ""))}','answered')">Answered</button>
+            <button class="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800" onclick="setOrganizerQnaStatus('${encodeURIComponent(String(row._id || ""))}','open')">Open</button>
+            <button class="rounded border border-rose-500/40 px-2 py-1 text-xs text-rose-300 hover:bg-slate-800" onclick="setOrganizerQnaStatus('${encodeURIComponent(String(row._id || ""))}','dismissed')">Dismiss</button>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function stopQnaStream() {
+      if (qnaStream) {
+        qnaStream.close();
+        qnaStream = null;
+      }
+    }
+
+    function startOrganizerQnaStream(eventId) {
+      stopQnaStream();
+      if (!eventId || typeof EventSource === "undefined") return;
+      const viewerId = localStorage.getItem("viewer_id") || "organizer";
+      qnaStream = new EventSource(`/api/events/${encodeURIComponent(eventId)}/comments/stream?viewerId=${encodeURIComponent(viewerId)}`);
+      const refresh = () => { loadOrganizerQna(); };
+      qnaStream.addEventListener("qna_created", refresh);
+      qnaStream.addEventListener("qna_updated", refresh);
+    }
+
+    async function loadOrganizerQna() {
+      const eventId = document.getElementById("analyticsEventSelect").value;
+      const status = document.getElementById("orgQnaStatus");
+      if (!eventId) {
+        renderOrganizerQna([]);
+        status.textContent = "Select an event to review live questions.";
+        stopQnaStream();
+        return;
+      }
+      status.textContent = "Loading live questions...";
+      const res = await fetch(`/api/events/${encodeURIComponent(eventId)}/qna?limit=20`);
+      if (!res.ok) {
+        renderOrganizerQna([]);
+        status.textContent = "Failed to load live questions.";
+        return;
+      }
+      const items = await res.json();
+      renderOrganizerQna(items);
+      status.textContent = `${Array.isArray(items) ? items.length : 0} live question(s) loaded.`;
+      startOrganizerQnaStream(eventId);
+    }
+
+    async function setOrganizerQnaStatus(questionId, status) {
+      const eventId = document.getElementById("analyticsEventSelect").value;
+      if (!eventId || !questionId) return;
+      const res = await fetch(`/api/events/${encodeURIComponent(eventId)}/qna/${encodeURIComponent(questionId)}/status`, {
+        method: "PATCH",
+        headers: headers({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ status })
+      });
+      const msg = document.getElementById("orgQnaStatus");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        msg.textContent = err.error || "Failed to update question.";
+        return;
+      }
+      msg.textContent = `Question marked ${status}.`;
+      await loadOrganizerQna();
+    }
+    window.setOrganizerQnaStatus = setOrganizerQnaStatus;
 
     async function loadPromos() {
       const eventId = document.getElementById("promoEvent").value;
@@ -647,9 +744,13 @@
       await loadOrganizerMl();
       await loadPromos();
     })();
-    window.addEventListener("beforeunload", stopScanner);
+    window.addEventListener("beforeunload", () => {
+      stopScanner();
+      stopQnaStream();
+    });
   </script>
   <script src="footer.js"></script>
   <script src="nav-auth.js?v=20260302a"></script>
 </body>
 </html>
+

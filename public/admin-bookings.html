@@ -245,6 +245,10 @@
       if (!raw) return "-";
       return `BK-${raw.slice(-8).toUpperCase()}`;
     }
+    function reputationText(rep) {
+      if (!rep) return "New attendee";
+      return `${rep.stars || ""} ${rep.label || "Attendee"} (${Number(rep.score || 0)})`.trim();
+    }
 
     function renderPagination(pagination) {
       const container = document.getElementById("bookingsPager");
@@ -364,6 +368,7 @@
           <p class="font-semibold">${escapeHtml(b.eventId?.title || "Unknown Event")}</p>
           <p class="mt-1 text-xs text-cyan-300">Booking Ref: ${escapeHtml(readableBookingId(b._id))}</p>
           <p class="mt-1 text-xs text-slate-400">${escapeHtml(b.userId?.email || "Unknown User")}</p>
+          <p class="mt-1 text-xs text-amber-300">Reputation: ${escapeHtml(reputationText(b.attendeeReputation))}</p>
           <p class="mt-1 text-xs text-slate-400">Ticket: ${escapeHtml(b.ticketType || "Standard")} x ${escapeHtml(b.quantity || 1)}</p>
           <p class="mt-1 text-xs text-slate-400">Amount: $${escapeHtml(b.totalAmount || 0)}</p>
           <p class="mt-1 text-xs text-slate-500">Status: ${escapeHtml(b.status || "pending")} | Payment: ${escapeHtml(b.paymentStatus || "unpaid")}</p>

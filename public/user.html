@@ -160,7 +160,7 @@
             <div class="stat-row"><span class="stat-label">Events attended</span><strong id="eventsAttended" class="stat-value">0</strong></div>
             <div class="stat-row"><span class="stat-label">Upcoming bookings</span><strong id="upcomingCount" class="stat-value">0</strong></div>
             <div class="stat-row"><span class="stat-label">Saved events</span><strong id="savedCount" class="stat-value">0</strong></div>
-            <div class="stat-row"><span class="stat-label">Recommendation fit</span><strong id="reputationBadge" class="stat-value">High</strong></div>
+            <div class="stat-row"><span class="stat-label">Attendee reputation</span><strong id="reputationBadge" class="stat-value">New attendee</strong></div>
           </div>
         </section>
       </aside>
@@ -323,6 +323,7 @@
     function renderProfile() {
       const me = dashboardState.me || {};
       const displayName = me.name || "User";
+      const reputation = me.reputation || dashboardState.bookings[0]?.attendeeReputation || null;
       document.getElementById("dashboardTitle").textContent = `${displayName}'s dashboard`;
       document.getElementById("profileName").textContent = displayName;
       document.getElementById("profileEmail").textContent = me.email || "No email available";
@@ -332,7 +333,12 @@
       document.getElementById("eventsAttended").textContent = dashboardState.bookings.filter((b) => String(b.status || "").toLowerCase() === "checked_in").length;
       document.getElementById("upcomingCount").textContent = dashboardState.bookings.filter((b) => ["pending", "confirmed"].includes(String(b.status || "").toLowerCase())).length;
       document.getElementById("savedCount").textContent = dashboardState.saved.length;
-      document.getElementById("reputationBadge").textContent = dashboardState.recommended.length >= 3 ? "Strong" : "Growing";
+      document.getElementById("reputationBadge").textContent = reputation
+        ? `${reputation.stars} ${reputation.label}`
+        : "New attendee";
+      document.getElementById("profileBadge").textContent = me.isEmailVerified
+        ? `Verified account · ${reputation?.label || "New attendee"}`
+        : (reputation?.label || "Verify email");
     }
     function renderSummary() {
       const bookings = dashboardState.bookings;

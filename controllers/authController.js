@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const Booking = require("../models/Booking");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const { authError } = require("../utils/authResponse");
@@ -16,6 +17,7 @@ const {
   notifyPasswordReset,
   notifySignupOtp
 } = require("../utils/notifications");
+const { calculateAttendeeReputation } = require("../utils/reputation");
 const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -251,7 +253,17 @@ exports.getMe = async (req, res) => {
     if (!user) {
       return authError(res, 404, "User not found", "USER_NOT_FOUND");
     }
-    res.json(user);
+    const history = await Booking.find({ userId: req.user.id })
+      .select("status date createdAt updatedAt eventId")
+      .populate("eventId", "date")
+      .lean();
+    const reputation = calculateAttendeeReputation(history);
+    res.json({
+      ...user.toObject(),
+      followerCount: Array.isArray(user.followers) ? user.followers.length : 0,
+      followingCount: Array.isArray(user.following) ? user.following.length : 0,
+      reputation
+    });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch profile", code: "GET_ME_FAILED" });
   }
@@ -263,13 +275,19 @@ exports.getPublicUser = async (req, res) => {
     if (!user) {
       return authError(res, 404, "User not found", "USER_NOT_FOUND");
     }
+    const history = await Booking.find({ userId: req.params.id })
+      .select("status date createdAt updatedAt eventId")
+      .populate("eventId", "date")
+      .lean();
+    const reputation = calculateAttendeeReputation(history);
     res.json({
       _id: user._id,
       name: user.name || "User",
       profileImage: user.profileImage || "",
       role: user.role || "user",
       followerCount: Array.isArray(user.followers) ? user.followers.length : 0,
-      followingCount: Array.isArray(user.following) ? user.following.length : 0
+      followingCount: Array.isArray(user.following) ? user.following.length : 0,
+      reputation
     });
   } catch {
     res.status(500).json({ error: "Failed to fetch public user", code: "GET_PUBLIC_USER_FAILED" });

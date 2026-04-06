@@ -1,73 +1,48 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Blog & Resources | Evenix</title>
   <link rel="icon" type="image/png" href="/assets/web-logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root { --bg-base:#080b14; --bg-surface:#0d1117; --bg-elevated:#161b27; --bg-hover:#1e2536; --brand-primary:#7c6af7; --brand-glow:rgba(124,106,247,0.15); --brand-accent:#f59e0b; --text-primary:#f0f2f8; --text-secondary:#8892a4; --text-muted:#4a5568; --border-default:rgba(255,255,255,0.07); --border-strong:rgba(255,255,255,0.12); --font-display:"Instrument Serif",serif; --font-body:"DM Sans",sans-serif; }
+    body { margin:0; font-family:var(--font-body); color:var(--text-primary); background:radial-gradient(900px 420px at 8% -8%, rgba(124,106,247,.18), transparent 58%), radial-gradient(720px 340px at 95% 10%, rgba(245,158,11,.1), transparent 52%), linear-gradient(180deg,#060912 0%,#0a0f19 48%,#080b14 100%); }
+    .shell { width:min(1200px, calc(100% - 32px)); margin:0 auto; padding:24px 0 48px; position:relative; overflow-x:clip; }
+    .shell::before, .shell::after { content:""; position:fixed; pointer-events:none; filter:blur(84px); opacity:.55; z-index:0; }
+    .shell::before { top:5rem; left:-8rem; width:20rem; height:20rem; background:rgba(124,106,247,.16); }
+    .shell::after { top:16rem; right:-6rem; width:18rem; height:18rem; background:rgba(245,158,11,.11); }
+    .hero, .card { position:relative; z-index:1; border:1px solid var(--border-default); border-radius:24px; background:linear-gradient(180deg, rgba(13,17,23,.96), rgba(13,17,23,.9)); box-shadow:0 22px 48px rgba(0,0,0,.22); }
+    .hero { margin-top:24px; padding:28px; }
+    .eyebrow { display:inline-flex; padding:7px 12px; border-radius:999px; font-size:.75rem; letter-spacing:.08em; text-transform:uppercase; color:#c4b5fd; background:rgba(124,106,247,.08); border:1px solid rgba(124,106,247,.32); }
+    .title { margin:16px 0 8px; font-family:var(--font-display); font-size:clamp(2.4rem,5vw,3.8rem); line-height:.95; letter-spacing:-.03em; font-weight:400; }
+    .subtitle { margin:0; max-width:58rem; color:var(--text-secondary); line-height:1.7; font-size:.98rem; }
+    .grid { display:grid; gap:18px; margin-top:24px; grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .card { padding:24px; transition:border-color .2s ease, transform .2s ease, box-shadow .2s ease; }
+    .card:hover { border-color:var(--border-strong); transform:translateY(-2px); box-shadow:0 0 30px rgba(124,106,247,.08), 0 20px 40px rgba(0,0,0,.3); }
+    @media (max-width:760px){ .shell{width:min(100%, calc(100% - 20px)); padding-top:16px;} .hero{padding:20px; border-radius:22px;} .grid{grid-template-columns:1fr;} .title{font-size:2.2rem;} }
+  </style>
 </head>
-<body class="min-h-screen bg-slate-950 text-slate-100">
-  <div class="mx-auto max-w-6xl px-4 py-8">
-    <header class="flex flex-col gap-4">
-      <nav data-role-nav class="flex flex-col gap-4 rounded-xl border border-slate-800 bg-slate-900/70 px-4 py-3 backdrop-blur md:flex-row md:items-center md:justify-between">
-        <div class="flex items-center gap-3">
-          <img src="/assets/web-logo.png" alt="Evenix" class="h-9 w-9 rounded-lg object-cover">
-          <div>
-            <p class="text-sm font-semibold">Evenix</p>
-            <p class="text-xs text-slate-400">Manage and discover events</p>
-          </div>
-        </div>
-        <div class="flex flex-wrap gap-2 text-sm">
-          <a href="/">Home</a>
-          <a data-nav="auth" class="hidden" href="/book.html">Book Event</a>
-          <a data-nav="admin" class="hidden" href="/create-event.html">Create Event</a>
-          <a data-nav="admin" class="hidden" href="/admin.html">Admin Dashboard</a>
-          <a data-nav="guest" href="/login.html">Login</a>
-          <a data-nav="guest" href="/signup.html">Sign Up</a>
-          
-            <a data-nav="auth-avatar" class="hidden inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full ring-2 ring-amber-300/40" href="/profile.html"><img data-nav-avatar-img src="https://ui-avatars.com/api/?name=U&background=0f172a&color=f59e0b&size=96" alt="Profile" class="h-full w-full object-cover"></a>
-        </div>
-      </nav>
-      <div>
-        <h1 class="text-3xl font-semibold">Blog & Resources</h1>
-        <p class="text-slate-400">Useful content about events, planning tips, and updates.</p>
-      </div>
+<body>
+  <div class="shell">
+    <div data-role-nav></div>
+    <header class="hero">
+      <span class="eyebrow">Insights and resources</span>
+      <h1 class="title">Practical event thinking for organizers and attendees.</h1>
+      <p class="subtitle">Use these short resources to improve event positioning, registration flow, messaging, and post-event follow-through across Evenix.</p>
     </header>
-
-    <section class="mt-8 grid gap-5 md:grid-cols-2">
-      <article class="rounded-xl border border-slate-800 bg-slate-900 p-5">
-        <p class="text-xs uppercase tracking-wide text-amber-300">Resource</p>
-        <h2 class="mt-2 text-xl font-semibold">How to Organize a High-Attendance Event</h2>
-        <p class="mt-2 text-sm text-slate-300">Checklist for venue sizing, registration flow, reminders, and post-event follow-up.</p>
-      </article>
-      <article class="rounded-xl border border-slate-800 bg-slate-900 p-5">
-        <p class="text-xs uppercase tracking-wide text-amber-300">Guide</p>
-        <h2 class="mt-2 text-xl font-semibold">Writing Better Event Descriptions</h2>
-        <p class="mt-2 text-sm text-slate-300">Simple format to improve conversion: outcome, audience, agenda, and CTA.</p>
-      </article>
-      <article class="rounded-xl border border-slate-800 bg-slate-900 p-5">
-        <p class="text-xs uppercase tracking-wide text-amber-300">Update</p>
-        <h2 class="mt-2 text-xl font-semibold">Using Dashboard Metrics Properly</h2>
-        <p class="mt-2 text-sm text-slate-300">What bookings and event counts tell you and what they do not tell you.</p>
-      </article>
-      <article class="rounded-xl border border-slate-800 bg-slate-900 p-5">
-        <p class="text-xs uppercase tracking-wide text-amber-300">Tip</p>
-        <h2 class="mt-2 text-xl font-semibold">Pre-Event Communication Templates</h2>
-        <p class="mt-2 text-sm text-slate-300">Reminder message templates for email and WhatsApp that improve attendance rates.</p>
-      </article>
+    <section class="grid">
+      <article class="card"><p class="text-xs uppercase tracking-[0.16em] text-amber-300">Resource</p><h2 class="mt-3 text-2xl font-semibold tracking-tight">How to organize a high-attendance event</h2><p class="mt-3 text-sm leading-7 text-slate-300">A practical checklist for venue sizing, registration flow, reminders, entry planning, and post-event follow-up.</p></article>
+      <article class="card"><p class="text-xs uppercase tracking-[0.16em] text-amber-300">Guide</p><h2 class="mt-3 text-2xl font-semibold tracking-tight">Writing better event descriptions</h2><p class="mt-3 text-sm leading-7 text-slate-300">A simple format that improves conversion: outcome, audience, agenda, logistics, and a clear action.</p></article>
+      <article class="card"><p class="text-xs uppercase tracking-[0.16em] text-amber-300">Update</p><h2 class="mt-3 text-2xl font-semibold tracking-tight">Using dashboard metrics properly</h2><p class="mt-3 text-sm leading-7 text-slate-300">What bookings, cancellations, and attendance forecasts can actually tell you and where to avoid bad conclusions.</p></article>
+      <article class="card"><p class="text-xs uppercase tracking-[0.16em] text-amber-300">Template</p><h2 class="mt-3 text-2xl font-semibold tracking-tight">Pre-event communication templates</h2><p class="mt-3 text-sm leading-7 text-slate-300">Reminder copy for email and WhatsApp that improves attendance without sounding automated or generic.</p></article>
     </section>
   </div>
   <script src="footer.js"></script>
   <script src="nav-auth.js?v=20260302a"></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-

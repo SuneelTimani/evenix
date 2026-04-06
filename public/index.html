@@ -114,9 +114,9 @@
     .nav-shell {
       border: 1px solid var(--border-default);
       border-radius: 20px;
-      background: rgba(8, 11, 20, 0.76);
-      backdrop-filter: blur(18px);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.28);
+      background: rgba(8, 11, 20, 0.82);
+      backdrop-filter: blur(24px);
+      box-shadow: 0 24px 52px rgba(0, 0, 0, 0.3);
     }
 
     .eyebrow {
@@ -236,6 +236,17 @@
       background: var(--bg-surface);
       border: 1px solid var(--border-default);
       border-radius: 16px;
+    }
+
+    .event-card {
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.22);
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    }
+
+    .event-card:hover {
+      border-color: var(--border-strong);
+      transform: translateY(-2px);
+      box-shadow: 0 0 30px rgba(124, 106, 247, 0.08), 0 20px 40px rgba(0, 0, 0, 0.3);
     }
 
     .stats-grid {

@@ -183,6 +183,24 @@
         <section class="card discussion-card">
           <div class="discussion-head">
             <div>
+              <h2 class="text-lg font-semibold tracking-tight">Live Q&A</h2>
+              <p class="section-meta">Submit questions and upvote the ones speakers should answer live.</p>
+            </div>
+          </div>
+          <form id="qnaForm" class="mt-4 grid gap-3">
+            <textarea id="qnaText" rows="2" maxlength="280" placeholder="Ask a question for the stage..." class="comment-box"></textarea>
+            <div class="flex items-center gap-3 flex-wrap">
+              <button type="submit" class="btn btn-primary">Submit Question</button>
+              <p id="qnaStatus" class="text-xs text-slate-400"></p>
+            </div>
+          </form>
+          <div id="qnaList" class="mt-3 grid gap-3">
+            <p class="text-sm text-slate-400">Loading live Q&A...</p>
+          </div>
+        </section>
+        <section class="card discussion-card">
+          <div class="discussion-head">
+            <div>
               <h2 class="text-lg font-semibold tracking-tight">Event Discussion</h2>
               <p class="section-meta" id="viewerCount">0 viewers online</p>
             </div>
@@ -220,12 +238,18 @@
     const refreshCommentsBtn = document.getElementById("refreshCommentsBtn");
     const viewerCountEl = document.getElementById("viewerCount");
     const typingIndicatorEl = document.getElementById("typingIndicator");
+    const qnaForm = document.getElementById("qnaForm");
+    const qnaText = document.getElementById("qnaText");
+    const qnaStatus = document.getElementById("qnaStatus");
+    const qnaList = document.getElementById("qnaList");
     const params = new URLSearchParams(window.location.search);
     const eventId = params.get("id");
     const authToken = localStorage.getItem("token") || "";
     let commentsState = [];
+    let qnaState = [];
     let commentsStream = null;
     let currentCreatorId = "";
+    let currentMe = null;
     let typingClearTimer = null;
     let lastTypingAt = 0;
     const replyDraftByComment = {};
@@ -368,6 +392,62 @@
       commentsList.innerHTML = comments.map((c) => renderCommentItem(c, false)).join("");
     }
 
+    function canModerateQna() {
+      const myId = String(currentMe?._id || currentMe?.id || "");
+      return Boolean(authToken && (String(currentMe?.role || "").toLowerCase() === "admin" || (myId && myId === currentCreatorId)));
+    }
+
+    function renderQna(items) {
+      if (!Array.isArray(items) || !items.length) {
+        qnaList.innerHTML = '<p class="text-sm text-slate-400">No live questions yet. Ask the first one.</p>';
+        return;
+      }
+      qnaList.innerHTML = items.map((q) => {
+        const id = encodeURIComponent(String(q._id || ""));
+        const badgeColor = q.qnaStatus === "answered"
+          ? "border-emerald-500/40 text-emerald-300"
+          : q.qnaStatus === "dismissed"
+            ? "border-rose-500/40 text-rose-300"
+            : "border-amber-500/40 text-amber-300";
+        return `
+          <article class="rounded-lg border border-slate-800 bg-slate-950 p-3">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-sm font-semibold">${escapeHtml(q.userName || "User")}</p>
+                <p class="text-xs text-slate-500">${new Date(q.createdAt).toLocaleString()}</p>
+              </div>
+              <span class="rounded-full border px-2 py-0.5 text-[11px] ${badgeColor}">${escapeHtml(q.qnaStatus || "open")}</span>
+            </div>
+            <p class="mt-2 whitespace-pre-wrap text-sm text-slate-200">${escapeHtml(q.text)}</p>
+            <div class="mt-3 flex flex-wrap items-center gap-2">
+              <button type="button" class="rounded border border-amber-500/40 px-2 py-1 text-[11px] text-amber-300 hover:bg-slate-900" onclick="toggleQnaVote('${id}')">Upvote (${Number(q.helpfulCount || 0)})</button>
+              ${canModerateQna() ? `
+                <button type="button" class="rounded border border-emerald-500/40 px-2 py-1 text-[11px] text-emerald-300 hover:bg-slate-900" onclick="updateQnaStatus('${id}','answered')">Mark Answered</button>
+                <button type="button" class="rounded border border-slate-700 px-2 py-1 text-[11px] text-slate-300 hover:bg-slate-900" onclick="updateQnaStatus('${id}','open')">Reopen</button>
+                <button type="button" class="rounded border border-rose-500/40 px-2 py-1 text-[11px] text-rose-300 hover:bg-slate-900" onclick="updateQnaStatus('${id}','dismissed')">Dismiss</button>
+              ` : ""}
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function upsertQnaItem(item) {
+      const id = String(item?._id || "");
+      if (!id) return;
+      const idx = qnaState.findIndex((row) => String(row._id) === id);
+      if (idx >= 0) qnaState[idx] = { ...qnaState[idx], ...item };
+      else qnaState.push(item);
+      qnaState = qnaState
+        .sort((a, b) => {
+          const voteDiff = Number(b.helpfulCount || 0) - Number(a.helpfulCount || 0);
+          if (voteDiff !== 0) return voteDiff;
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        })
+        .slice(0, 30);
+      renderQna(qnaState);
+    }
+
     function renderCommentItem(c, isReply) {
       const id = encodeURIComponent(String(c._id || ""));
       const replies = Array.isArray(c.replies) ? c.replies : [];
@@ -449,6 +529,19 @@
       renderComments(commentsState);
     }
 
+    async function loadQna() {
+      if (!eventId) return;
+      qnaList.innerHTML = '<p class="text-sm text-slate-400">Loading live Q&A...</p>';
+      const res = await fetch(`/api/events/${encodeURIComponent(eventId)}/qna?limit=30`);
+      if (!res.ok) {
+        qnaList.innerHTML = '<p class="text-sm text-rose-300">Failed to load live Q&A.</p>';
+        return;
+      }
+      const items = await res.json();
+      qnaState = Array.isArray(items) ? items : [];
+      renderQna(qnaState);
+    }
+
     function startCommentsStream() {
       if (!eventId || typeof EventSource === "undefined") return;
       if (commentsStream) {
@@ -471,6 +564,16 @@
         try {
           const payload = JSON.parse(ev.data);
           upsertComment(payload);
+        } catch (_) {}
+      });
+      commentsStream.addEventListener("qna_created", (ev) => {
+        try {
+          upsertQnaItem(JSON.parse(ev.data));
+        } catch (_) {}
+      });
+      commentsStream.addEventListener("qna_updated", (ev) => {
+        try {
+          upsertQnaItem(JSON.parse(ev.data));
         } catch (_) {}
       });
       commentsStream.addEventListener("viewer_count", (ev) => {
@@ -527,6 +630,41 @@
         return;
       }
 
+      let recurringSeriesBlock = "";
+      if (event?.recurringSeries?.enabled) {
+        try {
+          const seriesRes = await fetch(`/api/events/${encodeURIComponent(eventId)}/series`);
+          if (seriesRes.ok) {
+            const seriesPayload = await seriesRes.json();
+            const instances = Array.isArray(seriesPayload?.instances) ? seriesPayload.instances : [];
+            const upcomingInstances = instances.filter((row) => new Date(row.date).getTime() >= Date.now()).slice(0, 6);
+            const stats = seriesPayload?.stats || {};
+            recurringSeriesBlock = `
+              <div class="mt-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p class="text-xs uppercase tracking-[0.16em] text-emerald-300">Recurring Series</p>
+                    <p class="mt-1 text-sm text-slate-200">${escapeHtml(event.recurringSeries.label || "Recurring event series")}</p>
+                  </div>
+                  <div class="text-right text-xs text-slate-400">
+                    <div>${escapeHtml(String(stats.totalOccurrences || event.recurringSeries.count || 1))} total sessions</div>
+                    <div>${escapeHtml(String(stats.uniqueAttendees || 0))} attendees across series</div>
+                  </div>
+                </div>
+                <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                  ${upcomingInstances.map((row) => `
+                    <a href="/event-details.html?id=${encodeURIComponent(String(row._id || ""))}" class="rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-slate-200 hover:bg-slate-900">
+                      <div class="font-medium">${escapeHtml(new Date(row.date).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" }))}</div>
+                      <div class="text-xs text-slate-400">${escapeHtml(new Date(row.date).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }))}</div>
+                    </a>
+                  `).join("") || '<div class="text-sm text-slate-400">No future sessions scheduled.</div>'}
+                </div>
+              </div>
+            `;
+          }
+        } catch (_) {}
+      }
+
       const seatsBooked = Number(event.seatsBooked || 0);
       const capacity = Number(event.capacity || 0);
       const seatsLeft = Math.max(0, capacity - seatsBooked);
@@ -544,8 +682,8 @@
           if (authToken) {
             const meRes = await fetch("/api/auth/me", { headers: { Authorization: authToken } });
             if (meRes.ok) {
-              const me = await meRes.json();
-              const following = Array.isArray(me.following) ? me.following.map((id) => String(id)) : [];
+              currentMe = await meRes.json();
+              const following = Array.isArray(currentMe.following) ? currentMe.following.map((id) => String(id)) : [];
               isFollowing = following.includes(currentCreatorId);
             }
           }
@@ -582,6 +720,7 @@
           <p><span class="text-amber-300">Seats Left:</span> ${escapeHtml(seatsLeft)}</p>
         </div>
         ${Number(event.lowestTicketPrice || 0) > 0 ? `<div class="mt-4 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">Current demand pricing: <span class="font-semibold">${escapeHtml(event.dynamicPricing?.label || "Dynamic pricing")}</span> · from $${escapeHtml(Number(event.lowestTicketPrice || 0).toFixed(2).replace(/\\.00$/, ""))}</div>` : ""}
+        ${recurringSeriesBlock}
         <div class="mt-6">
           <p class="mb-2 text-sm font-semibold text-amber-200">Map</p>
           <div class="overflow-hidden rounded-lg border border-slate-700">
@@ -781,6 +920,43 @@
       commentStatus.textContent = "Comment posted.";
     });
 
+    qnaForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = qnaText.value.trim();
+      qnaStatus.classList.remove("text-emerald-300", "text-rose-300");
+      qnaStatus.classList.add("text-slate-400");
+      if (!text) {
+        qnaStatus.textContent = "Write a question first.";
+        return;
+      }
+      if (!authToken) {
+        qnaStatus.classList.remove("text-slate-400");
+        qnaStatus.classList.add("text-rose-300");
+        qnaStatus.textContent = "Please login to ask a question.";
+        return;
+      }
+      qnaStatus.textContent = "Submitting question...";
+      const res = await fetch(`/api/events/${encodeURIComponent(eventId)}/qna`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: authToken
+        },
+        body: JSON.stringify({ text })
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        qnaStatus.classList.remove("text-slate-400");
+        qnaStatus.classList.add("text-rose-300");
+        qnaStatus.textContent = body.error || "Failed to submit question.";
+        return;
+      }
+      qnaText.value = "";
+      qnaStatus.classList.remove("text-slate-400", "text-rose-300");
+      qnaStatus.classList.add("text-emerald-300");
+      qnaStatus.textContent = "Question submitted to the live board.";
+    });
+
     commentText.addEventListener("input", async () => {
       if (!authToken || !eventId) return;
       if (!commentText.value.trim()) return;
@@ -864,6 +1040,49 @@
       upsertComment(body);
     };
 
+    window.toggleQnaVote = async (commentId) => {
+      if (!authToken) {
+        qnaStatus.classList.remove("text-emerald-300");
+        qnaStatus.classList.add("text-rose-300");
+        qnaStatus.textContent = "Please login to upvote questions.";
+        return;
+      }
+      const res = await fetch(`/api/events/${encodeURIComponent(eventId)}/comments/${encodeURIComponent(commentId)}/helpful`, {
+        method: "PATCH",
+        headers: { Authorization: authToken }
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        qnaStatus.classList.remove("text-emerald-300");
+        qnaStatus.classList.add("text-rose-300");
+        qnaStatus.textContent = body.error || "Failed to update question vote.";
+        return;
+      }
+      upsertQnaItem(body);
+    };
+
+    window.updateQnaStatus = async (commentId, status) => {
+      const res = await fetch(`/api/events/${encodeURIComponent(eventId)}/qna/${encodeURIComponent(commentId)}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: authToken
+        },
+        body: JSON.stringify({ status })
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        qnaStatus.classList.remove("text-emerald-300");
+        qnaStatus.classList.add("text-rose-300");
+        qnaStatus.textContent = body.error || "Failed to update question status.";
+        return;
+      }
+      upsertQnaItem(body);
+      qnaStatus.classList.remove("text-rose-300");
+      qnaStatus.classList.add("text-emerald-300");
+      qnaStatus.textContent = "Q&A status updated.";
+    };
+
     window.reportComment = async (commentId) => {
       if (!authToken) {
         commentStatus.classList.remove("text-emerald-300");
@@ -895,11 +1114,13 @@
 
     loadDetails();
     loadComments();
+    loadQna();
     startCommentsStream();
   </script>
   <script src="footer.js"></script>
   <script src="nav-auth.js?v=20260302a"></script>
 </body>
 </html>
+
 
 

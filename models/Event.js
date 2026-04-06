@@ -33,15 +33,27 @@ const eventSchema = new mongoose.Schema({
   waitlistEnabled: { type: Boolean, default: true },
   cancelWindowHoursBefore: { type: Number, min: 0, max: 720, default: 24 },
   transferWindowHoursBefore: { type: Number, min: 0, max: 720, default: 2 },
+  recurrenceEnabled: { type: Boolean, default: false },
+  recurrenceSeriesId: { type: mongoose.Schema.Types.ObjectId, ref: "Event", default: null, index: true },
+  recurrenceParentId: { type: mongoose.Schema.Types.ObjectId, ref: "Event", default: null },
+  recurrenceIsRoot: { type: Boolean, default: false },
+  recurrenceInstanceNumber: { type: Number, default: 1, min: 1 },
+  recurrenceFrequency: { type: String, enum: ["daily", "weekly", "monthly", null], default: null },
+  recurrenceInterval: { type: Number, default: 1, min: 1, max: 12 },
+  recurrenceCount: { type: Number, default: null, min: 2, max: 52 },
+  recurrenceUntil: { type: Date, default: null },
+  recurrenceWeekdays: { type: [Number], default: [] },
+  recurrenceLabel: { type: String, default: "", trim: true, maxlength: 160 },
   status: { type: String, enum: ["draft", "published", "cancelled"], default: "published" },
   isDeleted: { type: Boolean, default: false, index: true },
   deletedAt: { type: Date, default: null },
   deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }
-});
+}, { timestamps: true });
 
 eventSchema.index({ date: 1 });
 eventSchema.index({ status: 1 });
 eventSchema.index({ category: 1 });
 eventSchema.index({ isDeleted: 1, status: 1, date: 1 });
+eventSchema.index({ recurrenceSeriesId: 1, date: 1 });
 
 module.exports = mongoose.model("Event", eventSchema);

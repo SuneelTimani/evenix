@@ -6,6 +6,8 @@
 
 "use strict";
 
+const { calculateAttendeeReputation } = require("../reputation");
+
 // ─── User history features ────────────────────────────────────────────────────
 
 function extractUserFeatures(userId, userBookings, allBookings) {
@@ -179,6 +181,7 @@ function detectChurn(event, eventBookings, allBookings) {
       paymentStatus: booking.paymentStatus || "unpaid",
       churnScore:   Math.round(score * 100),
       churnRisk:    risk,
+      attendeeReputation: calculateAttendeeReputation(userBookings),
       recommendedActions: actions,
       features: {
         historicalCancelRate: Math.round(userFeatures.userCancelRate * 100),
@@ -203,6 +206,9 @@ function churnSummary(churnResults) {
   const avgScore = churnResults.length
     ? Math.round(churnResults.reduce((s, r) => s + r.churnScore, 0) / churnResults.length)
     : 0;
+  const averageReputationScore = churnResults.length
+    ? Math.round(churnResults.reduce((sum, row) => sum + Number(row.attendeeReputation?.score || 0), 0) / churnResults.length)
+    : 0;
 
   return {
     total: churnResults.length,
@@ -211,6 +217,7 @@ function churnSummary(churnResults) {
     low,
     averageChurnScore: avgScore,
     atRiskCount: high + medium,
+    averageReputationScore
   };
 }
 

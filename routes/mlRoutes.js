@@ -28,6 +28,53 @@ const { predictAttendance, predictAttendanceBulk } = require("../utils/ml/attend
 const { detectChurn, churnSummary }                = require("../utils/ml/churnDetection");
 const { smartSearch }                              = require("../utils/ml/smartSearch");
 
+function decorateRecurringSeries(event) {
+  const enabled = Boolean(event?.recurrenceEnabled && (event?.recurrenceSeriesId || event?._id));
+  return {
+    ...event,
+    recurringSeries: {
+      enabled,
+      seriesId: enabled ? String(event?.recurrenceSeriesId || event?._id || "") : "",
+      isRoot: Boolean(event?.recurrenceIsRoot),
+      instanceNumber: Number(event?.recurrenceInstanceNumber || 1),
+      frequency: enabled ? String(event?.recurrenceFrequency || "") : "",
+      interval: enabled ? Number(event?.recurrenceInterval || 1) : 1,
+      count: Number(event?.recurrenceCount || 1),
+      until: event?.recurrenceUntil || null,
+      weekdays: Array.isArray(event?.recurrenceWeekdays) ? event.recurrenceWeekdays : [],
+      label: enabled ? String(event?.recurrenceLabel || "") : ""
+    }
+  };
+}
+
+async function getOrganizerEventIds(organizers = []) {
+  const names = [...new Set((Array.isArray(organizers) ? organizers : []).map((value) => String(value || "").trim()).filter(Boolean))];
+  if (!names.length) return [];
+  return Event.find({ organizer: { $in: names }, isDeleted: { $ne: true } }).distinct("_id");
+}
+
+async function getOrganizerHistoryBookingsForEvents(events = []) {
+  const eventList = Array.isArray(events) ? events.filter(Boolean) : [];
+  const primaryEventIds = eventList.map((event) => event?._id).filter(Boolean);
+  const organizerEventIds = await getOrganizerEventIds(eventList.map((event) => event?.organizer));
+  const allEventIds = [...new Set([...primaryEventIds, ...organizerEventIds].map((id) => String(id)))];
+  if (!allEventIds.length) return [];
+  return Booking.find({ eventId: { $in: allEventIds } })
+    .select("userId eventId status paymentStatus ticketType quantity createdAt updatedAt recurrenceSeriesId")
+    .populate("eventId", "organizer date recurrenceSeriesId")
+    .lean();
+}
+
+async function getUserHistoryBookings(userIds = []) {
+  const ids = [...new Set((Array.isArray(userIds) ? userIds : []).map((id) => String(id || "")).filter(Boolean))];
+  if (!ids.length) return [];
+  return Booking.find({ userId: { $in: ids } })
+    .select("userId eventId status paymentStatus ticketType quantity createdAt updatedAt recurrenceSeriesId")
+    .populate("userId", "email name")
+    .populate("eventId", "date recurrenceSeriesId")
+    .lean();
+}
+
 // ─── 1. Smart Semantic Search ─────────────────────────────────────────────────
 // GET /api/ml/search?q=outdoor+music+this+weekend&limit=10
 // Public — no auth required
@@ -42,10 +89,10 @@ router.get("/ml/search", async (req, res) => {
     }
 
     const events = await Event.find({ status: "published", isDeleted: { $ne: true } })
-      .select("_id title description category location organizer date capacity seatsBooked status tags coverImage ticketTypes")
+      .select("_id title description category location organizer date capacity seatsBooked status tags coverImage ticketTypes recurrenceEnabled recurrenceSeriesId recurrenceIsRoot recurrenceInstanceNumber recurrenceFrequency recurrenceInterval recurrenceCount recurrenceUntil recurrenceWeekdays recurrenceLabel")
       .lean();
 
-    const results = smartSearch(query, events.map(decorateEventDynamicPricing), { limit });
+    const results = smartSearch(query, events.map((row) => decorateRecurringSeries(decorateEventDynamicPricing(row))), { limit });
 
     res.json({ query, count: results.length, results });
   } catch (err) {
@@ -59,16 +106,15 @@ router.get("/ml/search", async (req, res) => {
 
 router.get("/ml/attendance/:eventId", protect, adminOnly, async (req, res) => {
   try {
-    const [event, allBookings] = await Promise.all([
-      Event.findById(req.params.eventId).lean(),
-      Booking.find({}).populate("eventId", "organizer").lean(),
-    ]);
+    const event = await Event.findById(req.params.eventId).lean();
 
     if (!event) {
       return res.status(404).json({ error: "Event not found", code: "NOT_FOUND" });
     }
 
-    res.json(predictAttendance(event, allBookings));
+    const relevantBookings = await getOrganizerHistoryBookingsForEvents([event]);
+
+    res.json(predictAttendance(event, relevantBookings));
   } catch (err) {
     console.error("[ML:attendance]", err.message);
     res.status(500).json({ error: "Attendance prediction failed", code: "ML_ERROR" });
@@ -82,12 +128,10 @@ router.get("/ml/attendance", protect, adminOnly, async (req, res) => {
   try {
     const statusFilter = req.query.status || "published";
 
-    const [events, allBookings] = await Promise.all([
-      Event.find({ status: statusFilter, isDeleted: { $ne: true } }).lean(),
-      Booking.find({}).populate("eventId", "organizer").lean(),
-    ]);
+    const events = await Event.find({ status: statusFilter, isDeleted: { $ne: true } }).lean();
+    const relevantBookings = await getOrganizerHistoryBookingsForEvents(events);
 
-    const predictions = predictAttendanceBulk(events, allBookings);
+    const predictions = predictAttendanceBulk(events, relevantBookings);
     predictions.sort((a, b) => a.showUpRate - b.showUpRate); // lowest show-up first
 
     res.json({ count: predictions.length, predictions });
@@ -105,17 +149,20 @@ router.get("/ml/churn/:eventId", protect, adminOnly, async (req, res) => {
     const { eventId } = req.params;
     const riskFilter  = req.query.risk; // optional: "high" | "medium" | "low"
 
-    const [event, eventBookings, allBookings] = await Promise.all([
+    const [event, eventBookings] = await Promise.all([
       Event.findById(eventId).lean(),
-      Booking.find({ eventId }).populate("userId", "email name").lean(),
-      Booking.find({}).populate("userId", "email name").lean(),
+      Booking.find({ eventId }).populate("userId", "email name").populate("eventId", "date").lean(),
     ]);
 
     if (!event) {
       return res.status(404).json({ error: "Event not found", code: "NOT_FOUND" });
     }
 
-    let results = detectChurn(event, eventBookings, allBookings);
+    const userHistoryBookings = await getUserHistoryBookings(
+      eventBookings.map((booking) => booking?.userId?._id || booking?.userId)
+    );
+
+    let results = detectChurn(event, eventBookings, userHistoryBookings);
     if (riskFilter) results = results.filter((r) => r.churnRisk === riskFilter);
 
     res.json({

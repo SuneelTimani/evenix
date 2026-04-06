@@ -6,16 +6,20 @@ const {
   getPersonalizedRecommendations,
   getFollowingFeed,
   getSavedEvents,
+  getEventSeries,
   saveEventForUser,
   unsaveEventForUser,
   updateEvent,
   getEventComments,
+  getEventQna,
   streamEventComments,
   publishTypingIndicator,
   addEventComment,
+  addEventQnaQuestion,
   addEventReply,
   toggleCommentHelpful,
-  reportEventComment
+  reportEventComment,
+  updateEventQnaStatus
 } = require("../controllers/eventController");
 const { protect } = require("../middleware/authMiddleware");
 const { adminOnly } = require("../middleware/adminMiddleware");
@@ -41,14 +45,18 @@ router.get("/", getEvents);
 router.get("/recommendations", protect, getPersonalizedRecommendations);
 router.get("/feed/following", protect, getFollowingFeed);
 router.get("/saved", protect, getSavedEvents);
+router.get("/:id/series", getEventSeries);
 router.post("/:id/save", protect, saveEventForUser);
 router.delete("/:id/save", protect, unsaveEventForUser);
 router.get("/:id/comments", getEventComments);
+router.get("/:id/qna", getEventQna);
 router.get("/:id/comments/stream", streamEventComments);
 router.post("/:id/comments/typing", protect, typingRateLimit, publishTypingIndicator);
 router.post("/:id/comments", protect, commentRateLimit, addEventComment);
+router.post("/:id/qna", protect, commentRateLimit, addEventQnaQuestion);
 router.post("/:id/comments/:commentId/reply", protect, commentRateLimit, addEventReply);
 router.patch("/:id/comments/:commentId/helpful", protect, reportRateLimit, toggleCommentHelpful);
+router.patch("/:id/qna/:commentId/status", protect, reportRateLimit, updateEventQnaStatus);
 router.post("/:id/comments/:commentId/report", protect, reportRateLimit, reportEventComment);
 router.post("/create", protect, adminOnly, createEvent);
 router.put("/:id", protect, adminOnly, updateEvent);

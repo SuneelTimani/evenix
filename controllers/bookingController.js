@@ -17,6 +17,7 @@ const {
   notifyAdminNewBookingWhatsApp,
   notifyWaitlistPromoted
 } = require("../utils/notifications");
+const { calculateAttendeeReputation } = require("../utils/reputation");
 let Stripe = null;
 try {
   Stripe = require("stripe");
@@ -128,6 +129,13 @@ function getTicketCharge(event, ticket, quantity = 1) {
   };
 }
 
+function getBookingSeriesFields(event) {
+  const recurringSeriesId = event?.recurrenceSeriesId || (event?.recurrenceEnabled ? event?._id : null) || null;
+  return {
+    recurrenceSeriesId: recurringSeriesId || null
+  };
+}
+
 function getWindowCutoff(eventDate, hoursBefore) {
   const eventTime = new Date(eventDate).getTime();
   const hours = Number(hoursBefore);
@@ -160,6 +168,7 @@ async function tryPromoteWaitlist(event, req = null) {
     const booking = await Booking.create({
       userId: entry.userId,
       eventId: event._id,
+      ...getBookingSeriesFields(event),
       attendeeName: entry.attendeeName || "",
       attendeeEmail: normalizeEmail(entry.attendeeEmail || ""),
       attendeeWhatsApp: String(entry.attendeeWhatsApp || "").trim(),
@@ -227,6 +236,25 @@ async function releaseSeatsForRefundIfNeeded(booking) {
   await tryPromoteWaitlist(event);
 }
 
+async function buildReputationMap(userIds) {
+  const ids = [...new Set((Array.isArray(userIds) ? userIds : []).map((id) => String(id || "")).filter(Boolean))];
+  if (!ids.length) return new Map();
+
+  const history = await Booking.find({ userId: { $in: ids } })
+    .select("userId status date createdAt updatedAt eventId")
+    .populate("eventId", "date")
+    .lean();
+
+  const grouped = new Map();
+  history.forEach((row) => {
+    const key = String(row.userId || "");
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(row);
+  });
+
+  return new Map(ids.map((id) => [id, calculateAttendeeReputation(grouped.get(id) || [])]));
+}
+
 async function finalizePaidStripeSession(session, expectedUserId = "") {
   if (!session || session.payment_status !== "paid") {
     throw new Error("Payment not completed for this session");
@@ -278,6 +306,7 @@ async function finalizePaidStripeSession(session, expectedUserId = "") {
   const booking = await Booking.create({
     userId: metadataUserId,
     eventId: event._id,
+    ...getBookingSeriesFields(event),
     attendeeName: session.metadata.attendeeName || "",
     attendeeEmail: normalizeEmail(session.metadata.attendeeEmail || ""),
     attendeeWhatsApp: String(session.metadata.attendeeWhatsApp || "").trim(),
@@ -411,6 +440,7 @@ exports.bookEvent = async (req, res) => {
     const booking = await Booking.create({
       userId: req.user.id,
       eventId: event._id,
+      ...getBookingSeriesFields(event),
       attendeeName: "",
       attendeeEmail: "",
       ticketType: ticket.name,
@@ -474,6 +504,7 @@ exports.registerTicket = async (req, res) => {
     const booking = await Booking.create({
       userId: req.user.id,
       eventId: event._id,
+      ...getBookingSeriesFields(event),
       attendeeName: cleanName,
       attendeeEmail: cleanEmail,
       attendeeWhatsApp: cleanWhatsApp,
@@ -788,7 +819,12 @@ exports.getBookings = async (req, res) => {
     const bookings = await Booking.find({ userId: req.user.id })
       .sort({ date: -1 })
       .populate("eventId", "title date location cancelWindowHoursBefore transferWindowHoursBefore");
-    res.json(bookings);
+    const reputationMap = await buildReputationMap([req.user.id]);
+    const attendeeReputation = reputationMap.get(String(req.user.id)) || calculateAttendeeReputation([]);
+    res.json(bookings.map((booking) => ({
+      ...booking.toObject(),
+      attendeeReputation
+    })));
   } catch (err) {
     bookingServerError(res, "BOOKINGS_LIST_FAILED", "Failed to load bookings");
   }
@@ -801,7 +837,11 @@ exports.getBookingById = async (req, res) => {
     if (!booking) {
       return res.status(404).json({ error: "Booking not found" });
     }
-    res.json(booking);
+    const reputationMap = await buildReputationMap([req.user.id]);
+    res.json({
+      ...booking.toObject(),
+      attendeeReputation: reputationMap.get(String(req.user.id)) || calculateAttendeeReputation([])
+    });
   } catch (err) {
     bookingServerError(res, "BOOKING_GET_FAILED", "Failed to load booking");
   }
