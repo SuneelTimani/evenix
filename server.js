@@ -53,6 +53,9 @@ app.use(express.static(publicDir));
 app.get("/", (req, res) => {
   res.sendFile(path.join(publicDir, "index.html"));
 });
+app.get("/favicon.ico", (req, res) => {
+  res.sendFile(path.join(publicDir, "assets", "web-logo.png"));
+});
 
 
 // Connect DB
@@ -65,6 +68,9 @@ const configuredOrigins = String(process.env.CORS_ALLOWED_ORIGINS || "")
   .map((o) => o.trim())
   .filter(Boolean);
 const isProd = process.env.NODE_ENV === "production";
+const vercelDeploymentOrigin = process.env.VERCEL_URL
+  ? `https://${String(process.env.VERCEL_URL).trim()}`
+  : "";
 const clientBaseOrigin = (() => {
   try {
     const raw = String(process.env.CLIENT_BASE_URL || "").trim();
@@ -94,7 +100,13 @@ const corsOptions = {
     if (!origin) return cb(null, true);
 
     if (isProd) {
-      const strictAllowed = configuredOrigins.length > 0 ? configuredOrigins : [clientBaseOrigin].filter(Boolean);
+      const strictAllowed = [
+        ...new Set([
+          ...configuredOrigins,
+          clientBaseOrigin,
+          vercelDeploymentOrigin
+        ].filter(Boolean))
+      ];
       if (strictAllowed.includes(origin)) return cb(null, true);
       console.warn(`[CORS] Blocked origin in production: ${origin}`);
       return cb(null, false);

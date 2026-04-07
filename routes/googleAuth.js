@@ -5,7 +5,9 @@ const { setAuthCookies } = require("../utils/authTokens");
 router.get(
   "/google",
   passport.authenticate("google", {
-    scope: ["profile", "email"],
+    scope: ["openid", "profile", "email"],
+    accessType: "offline",
+    prompt: "consent",
     session: false
   })
 );
