@@ -1,5 +1,6 @@
 require("dotenv").config();
 const express = require("express");
+const path = require("path");
 const app = express();
 const helmet = require("helmet");
 const mongoose = require("mongoose");
@@ -11,6 +12,8 @@ const { stripeWebhook } = require("./controllers/bookingController");
 const { startNotificationWorker, stopNotificationWorker } = require("./utils/notifications");
 const { startReminderWorker, stopReminderWorker } = require("./utils/reminderWorker");
 const isVercel = Boolean(process.env.VERCEL);
+
+const publicDir = path.join(__dirname, "public");
 
 // Middleware
 app.disable("x-powered-by");
@@ -46,7 +49,10 @@ app.use(requestLogger);
 app.post("/api/bookings/stripe/webhook", express.raw({ type: "application/json" }), stripeWebhook);
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: false }));
-app.use(express.static("public"));
+app.use(express.static(publicDir));
+app.get("/", (req, res) => {
+  res.sendFile(path.join(publicDir, "index.html"));
+});
 
 
 // Connect DB
