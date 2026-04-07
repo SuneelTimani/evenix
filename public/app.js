@@ -6,15 +6,51 @@ const timezoneSelect = document.getElementById("timezoneSelect");
 const installAppBtn = document.getElementById("installAppBtn");
 const heroCategoryPills = Array.from(document.querySelectorAll("#heroCategoryPills [data-category]"));
 const filterCategory = document.getElementById("filterCategory");
+const filterCategoryTrigger = document.getElementById("filterCategoryTrigger");
+const filterCategoryDropdown = document.getElementById("filterCategoryDropdown");
+const filterCategoryOptions = document.getElementById("filterCategoryOptions");
+  const filterCategorySearch = document.getElementById("filterCategorySearch");
+const filterCategoryLabel = document.getElementById("filterCategoryLabel");
 const filterDate = document.getElementById("filterDate");
+const filterDateTrigger = document.getElementById("filterDateTrigger");
+const filterDateDropdown = document.getElementById("filterDateDropdown");
+const filterDateOptions = document.getElementById("filterDateOptions");
+const filterDateSearch = document.getElementById("filterDateSearch");
+const filterDateLabel = document.getElementById("filterDateLabel");
 const filterPrice = document.getElementById("filterPrice");
+const filterPriceTrigger = document.getElementById("filterPriceTrigger");
+const filterPriceDropdown = document.getElementById("filterPriceDropdown");
+const filterPriceOptions = document.getElementById("filterPriceOptions");
+const filterPriceSearch = document.getElementById("filterPriceSearch");
+const filterPriceLabel = document.getElementById("filterPriceLabel");
 const resultsMeta = document.getElementById("resultsMeta");
 const searchAnnouncer = document.getElementById("searchAnnouncer");
+const filterMode = document.getElementById("filterMode");
+const filterModeTrigger = document.getElementById("filterModeTrigger");
+const filterModeDropdown = document.getElementById("filterModeDropdown");
+const filterModeOptions = document.getElementById("filterModeOptions");
+const filterPanel = document.getElementById("filterPanel");
+const filterPanelTitle = document.getElementById("filterPanelTitle");
+const filterPanelCategory = document.getElementById("filterPanelCategory");
+const filterPanelDate = document.getElementById("filterPanelDate");
+const filterPanelPrice = document.getElementById("filterPanelPrice");
+const filterPanelLocale = document.getElementById("filterPanelLocale");
+const localeSelectTrigger = document.getElementById("localeSelectTrigger");
+const localeSelectDropdown = document.getElementById("localeSelectDropdown");
+const localeSelectOptions = document.getElementById("localeSelectOptions");
+const localeSelectSearch = document.getElementById("localeSelectSearch");
+const localeSelectLabel = document.getElementById("localeSelectLabel");
+const timezoneSelectTrigger = document.getElementById("timezoneSelectTrigger");
+const timezoneSelectDropdown = document.getElementById("timezoneSelectDropdown");
+const timezoneSelectOptions = document.getElementById("timezoneSelectOptions");
+const timezoneSelectSearch = document.getElementById("timezoneSelectSearch");
+const timezoneSelectLabel = document.getElementById("timezoneSelectLabel");
 
 let allEvents = [];
 let currentSourceEvents = [];
 let searchTimer = null;
 let activeSearchRequest = 0;
+let activeFilterPanel = "category";
 const initialQuery = new URLSearchParams(window.location.search).get("q") || "";
 if (eventSearch && initialQuery) eventSearch.value = initialQuery;
 
@@ -321,6 +357,197 @@ function syncCategoryControls(category) {
   applyVisualCategorySelection(mapped);
 }
 
+function closeCategoryMenu() {
+  if (!filterCategoryDropdown || !filterCategoryTrigger) return;
+  filterCategoryDropdown.hidden = true;
+  filterCategoryTrigger.setAttribute("aria-expanded", "false");
+}
+
+function renderCategoryOptions(searchValue = "") {
+  if (!filterCategory || !filterCategoryOptions) return;
+  const query = String(searchValue || "").trim().toLowerCase();
+  const options = Array.from(filterCategory.options).map((option) => ({
+    value: option.value,
+    label: option.textContent || option.value
+  }));
+  const visible = options.filter((option) => option.label.toLowerCase().includes(query));
+  filterCategoryOptions.innerHTML = visible.map((option) => `
+    <button
+      type="button"
+      class="filter-option ${filterCategory.value === option.value ? "is-active" : ""}"
+      data-category-option="${escapeHtml(option.value)}"
+      role="option"
+      aria-selected="${filterCategory.value === option.value ? "true" : "false"}">
+      <span>${escapeHtml(option.label)}</span>
+      <span class="filter-option-mark">✓</span>
+    </button>
+  `).join("") || `<div class="px-3 py-4 text-sm text-slate-400">No categories found.</div>`;
+}
+
+  function syncCategoryMenuLabel() {
+    if (!filterCategory || !filterCategoryLabel) return;
+    const selected = filterCategory.options[filterCategory.selectedIndex];
+    filterCategoryLabel.textContent = selected ? selected.textContent : "All categories";
+    renderCategoryOptions("");
+  }
+
+function renderSimpleOptions(selectEl, optionsEl) {
+  if (!selectEl || !optionsEl) return;
+  optionsEl.innerHTML = Array.from(selectEl.options).map((option) => `
+    <button
+      type="button"
+      class="filter-option ${selectEl.value === option.value ? "is-active" : ""}"
+      data-simple-select-value="${escapeHtml(option.value)}"
+      role="option"
+      aria-selected="${selectEl.value === option.value ? "true" : "false"}">
+      <span>${escapeHtml(option.textContent || option.value)}</span>
+      <span class="filter-option-mark">✓</span>
+    </button>
+  `).join("");
+}
+
+function syncFilterPanel() {
+  if (!filterPanel) return;
+  const mode = String(filterMode?.value || "category");
+  activeFilterPanel = mode;
+  if (filterPanelTitle) {
+    filterPanelTitle.textContent =
+      mode === "category" ? "Category" :
+      mode === "date" ? "Date" :
+      mode === "price" ? "Price" :
+      "Language / Time";
+  }
+  if (filterPanelCategory) filterPanelCategory.hidden = mode !== "category";
+  if (filterPanelDate) filterPanelDate.hidden = mode !== "date";
+  if (filterPanelPrice) filterPanelPrice.hidden = mode !== "price";
+  if (filterPanelLocale) filterPanelLocale.hidden = mode !== "locale";
+}
+
+function openFilterSubmenuForMode(mode) {
+  const closeAll = () => {
+    if (filterCategoryDropdown) filterCategoryDropdown.hidden = true;
+    if (filterCategoryTrigger) filterCategoryTrigger.setAttribute("aria-expanded", "false");
+    if (filterDateDropdown) filterDateDropdown.hidden = true;
+    if (filterDateTrigger) filterDateTrigger.setAttribute("aria-expanded", "false");
+    if (filterPriceDropdown) filterPriceDropdown.hidden = true;
+    if (filterPriceTrigger) filterPriceTrigger.setAttribute("aria-expanded", "false");
+    if (localeSelectDropdown) localeSelectDropdown.hidden = true;
+    if (localeSelectTrigger) localeSelectTrigger.setAttribute("aria-expanded", "false");
+    if (timezoneSelectDropdown) timezoneSelectDropdown.hidden = true;
+    if (timezoneSelectTrigger) timezoneSelectTrigger.setAttribute("aria-expanded", "false");
+  };
+
+  closeAll();
+
+    if (mode === "category" && filterCategoryDropdown && filterCategoryTrigger) {
+      filterCategoryDropdown.hidden = false;
+      filterCategoryTrigger.setAttribute("aria-expanded", "true");
+      renderCategoryOptions("");
+      window.setTimeout(() => filterCategoryOptions?.querySelector("[data-custom-select-value]")?.focus(), 0);
+      return;
+    }
+
+    if (mode === "date" && filterDateDropdown && filterDateTrigger) {
+      filterDateDropdown.hidden = false;
+      filterDateTrigger.setAttribute("aria-expanded", "true");
+      window.setTimeout(() => filterDateOptions?.querySelector("[data-custom-select-value]")?.focus(), 0);
+      return;
+    }
+
+    if (mode === "price" && filterPriceDropdown && filterPriceTrigger) {
+      filterPriceDropdown.hidden = false;
+      filterPriceTrigger.setAttribute("aria-expanded", "true");
+      window.setTimeout(() => filterPriceOptions?.querySelector("[data-custom-select-value]")?.focus(), 0);
+      return;
+    }
+
+    if (mode === "locale" && localeSelectDropdown && localeSelectTrigger) {
+      localeSelectDropdown.hidden = false;
+      localeSelectTrigger.setAttribute("aria-expanded", "true");
+      if (timezoneSelectDropdown && timezoneSelectTrigger) {
+        timezoneSelectDropdown.hidden = false;
+        timezoneSelectTrigger.setAttribute("aria-expanded", "true");
+      }
+      window.setTimeout(() => localeSelectOptions?.querySelector("[data-custom-select-value]")?.focus(), 0);
+    }
+  }
+
+function initCustomSelect({ selectEl, triggerEl, dropdownEl, optionsEl, searchEl, labelEl, emptyText, onChange }) {
+  if (!selectEl || !triggerEl || !dropdownEl || !optionsEl || !labelEl) return;
+
+  const close = () => {
+    dropdownEl.hidden = true;
+    triggerEl.setAttribute("aria-expanded", "false");
+  };
+
+  const render = (searchValue = "") => {
+    const query = String(searchValue || "").trim().toLowerCase();
+    const options = Array.from(selectEl.options).map((option) => ({
+      value: option.value,
+      label: option.textContent || option.value
+    }));
+    const visible = options.filter((option) => option.label.toLowerCase().includes(query));
+    optionsEl.innerHTML = visible.map((option) => `
+      <button
+        type="button"
+        class="filter-option ${selectEl.value === option.value ? "is-active" : ""}"
+        data-custom-select-value="${escapeHtml(option.value)}"
+        role="option"
+        aria-selected="${selectEl.value === option.value ? "true" : "false"}">
+        <span>${escapeHtml(option.label)}</span>
+        <span class="filter-option-mark">✓</span>
+      </button>
+    `).join("") || `<div class="px-3 py-4 text-sm text-slate-400">${escapeHtml(emptyText || "No options found.")}</div>`;
+  };
+
+  const sync = () => {
+    const selected = selectEl.options[selectEl.selectedIndex];
+    labelEl.textContent = selected ? selected.textContent : "";
+    render(searchEl?.value || "");
+  };
+
+  triggerEl.addEventListener("click", () => {
+    const nextOpen = dropdownEl.hidden;
+    dropdownEl.hidden = !nextOpen;
+    triggerEl.setAttribute("aria-expanded", nextOpen ? "true" : "false");
+    if (nextOpen) {
+      render(searchEl?.value || "");
+      window.setTimeout(() => searchEl?.focus(), 0);
+    }
+  });
+
+  if (searchEl) {
+    searchEl.addEventListener("input", () => render(searchEl.value));
+  }
+
+  optionsEl.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-custom-select-value]");
+    if (!button) return;
+    selectEl.value = button.getAttribute("data-custom-select-value") || "";
+    sync();
+    close();
+    if (typeof onChange === "function") onChange();
+  });
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    const wrapper = triggerEl.closest(".filter-menu");
+    if (wrapper && !wrapper.contains(target)) close();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") close();
+  });
+
+  selectEl.addEventListener("change", () => {
+    sync();
+    if (typeof onChange === "function") onChange();
+  });
+
+  sync();
+}
+
 function scheduleMlSearch(query) {
   if (searchTimer) clearTimeout(searchTimer);
   searchTimer = setTimeout(() => runMlSearch(query), 300);
@@ -417,14 +644,134 @@ heroCategoryPills.forEach((button) => {
   });
 });
 
-if (filterCategory) {
-  filterCategory.addEventListener("change", () => {
-    applyFilters(currentSourceEvents);
+initCustomSelect({
+  selectEl: filterCategory,
+  triggerEl: filterCategoryTrigger,
+  dropdownEl: filterCategoryDropdown,
+  optionsEl: filterCategoryOptions,
+  searchEl: filterCategorySearch,
+  labelEl: filterCategoryLabel,
+  emptyText: "No categories found.",
+  onChange: () => applyFilters(currentSourceEvents)
+});
+
+initCustomSelect({
+  selectEl: filterDate,
+  triggerEl: filterDateTrigger,
+  dropdownEl: filterDateDropdown,
+  optionsEl: filterDateOptions,
+  searchEl: filterDateSearch,
+  labelEl: filterDateLabel,
+  emptyText: "No date filters found.",
+  onChange: () => applyFilters(currentSourceEvents)
+});
+
+initCustomSelect({
+  selectEl: filterPrice,
+  triggerEl: filterPriceTrigger,
+  dropdownEl: filterPriceDropdown,
+  optionsEl: filterPriceOptions,
+  searchEl: filterPriceSearch,
+  labelEl: filterPriceLabel,
+  emptyText: "No price filters found.",
+  onChange: () => applyFilters(currentSourceEvents)
+});
+
+  if (filterMode && filterModeTrigger && filterModeDropdown && filterModeOptions && filterPanel) {
+    renderSimpleOptions(filterMode, filterModeOptions);
+    syncFilterPanel();
+
+    filterModeTrigger.addEventListener("click", () => {
+      const nextOpen = filterModeDropdown.hidden;
+      filterModeDropdown.hidden = !nextOpen;
+      filterModeTrigger.setAttribute("aria-expanded", nextOpen ? "true" : "false");
+      if (nextOpen) {
+        renderSimpleOptions(filterMode, filterModeOptions);
+        filterPanel.hidden = true;
+      }
+    });
+
+    const handleFilterModePreview = (event) => {
+      const button = event.target.closest("[data-simple-select-value]");
+      if (!button) return;
+      filterMode.value = button.getAttribute("data-simple-select-value") || "category";
+      renderSimpleOptions(filterMode, filterModeOptions);
+      syncFilterPanel();
+      filterPanel.hidden = false;
+      openFilterSubmenuForMode(filterMode.value);
+    };
+
+    filterModeOptions.addEventListener("mouseover", handleFilterModePreview);
+    filterModeOptions.addEventListener("focusin", handleFilterModePreview);
+
+    filterModeOptions.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-simple-select-value]");
+      if (!button) return;
+      filterMode.value = button.getAttribute("data-simple-select-value") || "category";
+    renderSimpleOptions(filterMode, filterModeOptions);
+    syncFilterPanel();
+    filterPanel.hidden = false;
+    filterModeDropdown.hidden = true;
+    filterModeTrigger.setAttribute("aria-expanded", "false");
+    openFilterSubmenuForMode(filterMode.value);
   });
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    const modeWrap = filterModeTrigger.closest(".filter-menu");
+    if (modeWrap && !modeWrap.contains(target)) {
+      filterModeDropdown.hidden = true;
+      filterModeTrigger.setAttribute("aria-expanded", "false");
+    }
+    const anchor = filterPanel.closest(".filters-anchor");
+    if (anchor && !anchor.contains(target)) {
+      filterPanel.hidden = true;
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      filterModeDropdown.hidden = true;
+      filterModeTrigger.setAttribute("aria-expanded", "false");
+      filterPanel.hidden = true;
+    }
+  });
+
+  filterPanel.hidden = true;
 }
 
-if (filterDate) filterDate.addEventListener("change", () => applyFilters(currentSourceEvents));
-if (filterPrice) filterPrice.addEventListener("change", () => applyFilters(currentSourceEvents));
+initCustomSelect({
+  selectEl: localeSelect,
+  triggerEl: localeSelectTrigger,
+  dropdownEl: localeSelectDropdown,
+  optionsEl: localeSelectOptions,
+  searchEl: localeSelectSearch,
+  labelEl: localeSelectLabel,
+  emptyText: "No languages found.",
+  onChange: () => {
+    if (window.AppI18nTime && localeSelect) {
+      window.AppI18nTime.setLocale(localeSelect.value);
+      applyFilters(currentSourceEvents);
+    }
+  }
+});
+
+initCustomSelect({
+  selectEl: timezoneSelect,
+  triggerEl: timezoneSelectTrigger,
+  dropdownEl: timezoneSelectDropdown,
+  optionsEl: timezoneSelectOptions,
+  searchEl: timezoneSelectSearch,
+  labelEl: timezoneSelectLabel,
+  emptyText: "No timezones found.",
+  onChange: () => {
+    if (window.AppI18nTime && timezoneSelect) {
+      window.AppI18nTime.setTimeZone(timezoneSelect.value);
+      applyFilters(currentSourceEvents);
+    }
+  }
+});
 
 if (installAppBtn) {
   installAppBtn.addEventListener("click", async () => {
@@ -450,18 +797,14 @@ if (installAppBtn) {
 if (window.AppI18nTime) {
   if (localeSelect) {
     localeSelect.value = window.AppI18nTime.getLocale();
-    localeSelect.addEventListener("change", () => {
-      window.AppI18nTime.setLocale(localeSelect.value);
-      applyFilters(currentSourceEvents);
-    });
+    const localeOption = Array.from(localeSelect.options).find((option) => option.value === localeSelect.value);
+    if (localeOption && localeSelectLabel) localeSelectLabel.textContent = localeOption.textContent || localeSelect.value;
   }
 
   if (timezoneSelect) {
     timezoneSelect.value = window.AppI18nTime.getTimeZone();
-    timezoneSelect.addEventListener("change", () => {
-      window.AppI18nTime.setTimeZone(timezoneSelect.value);
-      applyFilters(currentSourceEvents);
-    });
+    const tzOption = Array.from(timezoneSelect.options).find((option) => option.value === timezoneSelect.value);
+    if (tzOption && timezoneSelectLabel) timezoneSelectLabel.textContent = tzOption.textContent || timezoneSelect.value;
   }
 }
 

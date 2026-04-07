@@ -232,7 +232,7 @@
     }
     .btn-subtle:hover { background: rgba(255,255,255,0.08); }
 
-    .stat-card, .mini-panel, .filter-bar, .empty-state, .event-card {
+    .stat-card, .mini-panel, .empty-state, .event-card {
       background: var(--bg-surface);
       border: 1px solid var(--border-default);
       border-radius: 16px;
@@ -270,22 +270,6 @@
       letter-spacing: -0.04em;
     }
 
-    .filter-bar {
-      position: sticky;
-      top: calc(var(--nav-offset, 0px) + 18px);
-      z-index: 40;
-      margin-top: 32px;
-      padding: 16px 18px;
-      background: rgba(13, 17, 23, 0.78);
-      backdrop-filter: blur(18px);
-    }
-    .filters-grid {
-      display: grid;
-      grid-template-columns: 1.2fr 1fr 1fr auto;
-      gap: 12px;
-      align-items: end;
-    }
-
     .field {
       display: grid;
       gap: 8px;
@@ -307,6 +291,164 @@
       outline: none;
       border-color: var(--brand-primary);
       box-shadow: 0 0 0 3px rgba(124,106,247,0.15);
+    }
+    .filters-anchor {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .filter-master {
+      min-width: 160px;
+    }
+      .filter-panel {
+        position: absolute;
+        top: calc(100% + 12px);
+        right: calc(100% + 6px);
+        width: min(280px, calc(100vw - 32px));
+        padding: 14px;
+        border-radius: 18px;
+        border: 1px solid var(--border-default);
+        background: rgba(13, 17, 23, 0.96);
+        box-shadow: 0 24px 48px rgba(0,0,0,0.42);
+        z-index: 90;
+      }
+      .filter-panel[hidden] {
+        display: none;
+      }
+      .filter-panel-row {
+        display: grid;
+        gap: 10px;
+      }
+    .filter-menu {
+        position: relative;
+      }
+      .filter-panel .filter-menu {
+        z-index: 1;
+      }
+      .filter-panel .filter-menu:focus-within {
+        z-index: 2;
+      }
+      .filter-panel .filter-trigger {
+        display: none;
+      }
+      .filter-panel .filter-dropdown {
+        position: static;
+        top: auto;
+        left: auto;
+        width: 100%;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+        overflow: visible;
+      }
+      .filter-panel .filter-options {
+        max-height: 280px;
+        padding: 0;
+      }
+      .filter-trigger {
+        display: inline-flex;
+        align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 48px;
+      min-width: 180px;
+      border-radius: 12px;
+      border: 1px solid var(--border-default);
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      padding: 0 14px;
+      font: inherit;
+      cursor: pointer;
+      transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+    .filter-trigger:hover,
+    .filter-trigger[aria-expanded="true"] {
+      border-color: var(--border-brand);
+      background: var(--bg-hover);
+    }
+    .filter-trigger:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(124,106,247,0.15);
+      border-color: var(--brand-primary);
+    }
+    .filter-caret {
+      width: 10px;
+      height: 10px;
+      border-right: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      transform: rotate(45deg) translateY(-2px);
+      opacity: 0.8;
+    }
+    .filter-dropdown {
+      position: absolute;
+      top: calc(100% + 10px);
+      left: 0;
+      width: 260px;
+      border-radius: 16px;
+      border: 1px solid var(--border-default);
+      background: rgba(13, 17, 23, 0.96);
+      box-shadow: 0 24px 48px rgba(0,0,0,0.42);
+      overflow: hidden;
+      z-index: 80;
+    }
+    .filter-dropdown[hidden] {
+      display: none;
+    }
+    .filter-search-wrap {
+      padding: 12px;
+      border-bottom: 1px solid var(--border-default);
+      background: rgba(255,255,255,0.02);
+    }
+    .filter-search-wrap input {
+      width: 100%;
+      min-height: 42px;
+      border-radius: 10px;
+      border: 1px solid var(--border-default);
+      background: var(--bg-base);
+      color: var(--text-primary);
+      padding: 0 12px;
+      font: inherit;
+    }
+    .filter-search-wrap input:focus {
+      outline: none;
+      border-color: var(--brand-primary);
+      box-shadow: 0 0 0 3px rgba(124,106,247,0.15);
+    }
+    .filter-options {
+      max-height: 240px;
+      overflow: auto;
+      padding: 8px;
+      display: grid;
+      gap: 4px;
+    }
+    .filter-option {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      min-height: 44px;
+      border: 0;
+      background: transparent;
+      color: var(--text-primary);
+      border-radius: 10px;
+      padding: 0 12px;
+      text-align: left;
+      font: inherit;
+      cursor: pointer;
+    }
+    .filter-option:hover,
+    .filter-option.is-active {
+      background: rgba(255,255,255,0.05);
+    }
+    .filter-option-mark {
+      color: var(--brand-primary);
+      font-size: 0.9rem;
+      opacity: 0;
+    }
+    .filter-option.is-active .filter-option-mark {
+      opacity: 1;
     }
 
     .section-heading {
@@ -527,9 +669,10 @@
       .event-grid,
       .filters-grid { grid-template-columns: 1fr; }
       .section-heading { flex-direction: column; align-items: start; }
-      .filter-bar { top: calc(var(--nav-offset, 0px) + 10px); }
       .search-shell { padding: 12px 14px; }
       .search-kbd { display: none; }
+      .filters-anchor { width: 100%; justify-content: flex-start; }
+      .filter-panel { position: static; width: 100%; margin-top: 12px; }
     }
   </style>
 </head>
@@ -622,73 +765,120 @@
           </div>
         </section>
 
-        <section id="stickyFilterBar" class="filter-bar animate-in delay-2" aria-label="Event filters">
-          <div class="filters-grid">
-            <div class="field">
-              <label for="filterCategory">Category</label>
-              <select id="filterCategory">
-                <option value="all">All categories</option>
-                <option value="Conference">Conference</option>
-                <option value="Workshop">Workshop</option>
-                <option value="Festival">Festival</option>
-                <option value="Concert">Concert</option>
-                <option value="Meetup">Meetup</option>
-                <option value="Webinar">Webinar</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label for="filterDate">Date</label>
-              <select id="filterDate">
-                <option value="all">Any time</option>
-                <option value="today">Today</option>
-                <option value="this_week">This week</option>
-                <option value="this_weekend">This weekend</option>
-                <option value="this_month">This month</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label for="filterPrice">Price</label>
-              <select id="filterPrice">
-                <option value="all">Free + Paid</option>
-                <option value="free">Free only</option>
-                <option value="paid">Paid only</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label for="localeSelect">Language / Timezone</label>
-              <div class="grid grid-cols-2 gap-3">
-                <select id="localeSelect" aria-label="Language">
-                  <option value="en">EN</option>
-                  <option value="es">ES</option>
-                  <option value="fr">FR</option>
-                  <option value="ur">UR</option>
-                </select>
-                <select id="timezoneSelect" aria-label="Timezone">
-                  <option value="UTC">UTC</option>
-                  <option value="Asia/Karachi">Karachi</option>
-                  <option value="Asia/Dubai">Dubai</option>
-                  <option value="Europe/London">London</option>
-                  <option value="America/New_York">New York</option>
-                  <option value="America/Los_Angeles">Los Angeles</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </section>
-
         <section class="animate-in delay-3">
           <div class="section-heading">
             <div>
               <p class="eyebrow">Curated event discovery</p>
               <h2>Featured events</h2>
             </div>
-            <p id="resultsMeta">Smart filters update instantly across the full catalog.</p>
-          </div>
-          <div id="events" class="event-grid" aria-live="polite"></div>
-        </section>
+            <div class="filters-anchor">
+              <p id="resultsMeta">Smart filters update instantly across the full catalog.</p>
+              <div class="field filter-menu filter-master">
+                <select id="filterMode" hidden>
+                  <option value="category">Category</option>
+                  <option value="date">Date</option>
+                  <option value="price">Price</option>
+                  <option value="locale">Language / Time</option>
+                </select>
+                <button id="filterModeTrigger" class="filter-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                  <span>Filter</span>
+                  <span class="filter-caret" aria-hidden="true"></span>
+                </button>
+                <div id="filterModeDropdown" class="filter-dropdown" hidden>
+                  <div id="filterModeOptions" class="filter-options" role="listbox" aria-label="Filter types"></div>
+                </div>
+                <div id="filterPanel" class="filter-panel" hidden>
+                  <div id="filterPanelCategory" class="field filter-menu">
+                    <select id="filterCategory" hidden>
+                      <option value="all">All categories</option>
+                    <option value="Conference">Conference</option>
+                    <option value="Workshop">Workshop</option>
+                    <option value="Festival">Festival</option>
+                    <option value="Concert">Concert</option>
+                    <option value="Meetup">Meetup</option>
+                    <option value="Webinar">Webinar</option>
+                  </select>
+                    <button id="filterCategoryTrigger" class="filter-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                      <span id="filterCategoryLabel">All categories</span>
+                      <span class="filter-caret" aria-hidden="true"></span>
+                    </button>
+                    <div id="filterCategoryDropdown" class="filter-dropdown" hidden>
+                    <div id="filterCategoryOptions" class="filter-options" role="listbox" aria-label="Event categories"></div>
+                  </div>
+                </div>
+
+                <div id="filterPanelDate" class="field filter-menu" hidden>
+                  <select id="filterDate" hidden>
+                    <option value="all">Any time</option>
+                    <option value="today">Today</option>
+                    <option value="this_week">This week</option>
+                    <option value="this_weekend">This weekend</option>
+                    <option value="this_month">This month</option>
+                  </select>
+                    <button id="filterDateTrigger" class="filter-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                      <span id="filterDateLabel">Any time</span>
+                      <span class="filter-caret" aria-hidden="true"></span>
+                    </button>
+                    <div id="filterDateDropdown" class="filter-dropdown" hidden>
+                      <div id="filterDateOptions" class="filter-options" role="listbox" aria-label="Date filters"></div>
+                    </div>
+                  </div>
+
+                <div id="filterPanelPrice" class="field filter-menu" hidden>
+                  <select id="filterPrice" hidden>
+                    <option value="all">Free + Paid</option>
+                    <option value="free">Free only</option>
+                    <option value="paid">Paid only</option>
+                  </select>
+                    <button id="filterPriceTrigger" class="filter-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                      <span id="filterPriceLabel">Free + Paid</span>
+                      <span class="filter-caret" aria-hidden="true"></span>
+                    </button>
+                    <div id="filterPriceDropdown" class="filter-dropdown" hidden>
+                      <div id="filterPriceOptions" class="filter-options" role="listbox" aria-label="Price filters"></div>
+                    </div>
+                  </div>
+
+                <div id="filterPanelLocale" class="filter-panel-row" hidden>
+                  <div class="field filter-menu">
+                    <select id="localeSelect" hidden aria-label="Language">
+                      <option value="en">EN</option>
+                      <option value="es">ES</option>
+                      <option value="fr">FR</option>
+                      <option value="ur">UR</option>
+                    </select>
+                      <button id="localeSelectTrigger" class="filter-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                        <span id="localeSelectLabel">EN</span>
+                        <span class="filter-caret" aria-hidden="true"></span>
+                      </button>
+                      <div id="localeSelectDropdown" class="filter-dropdown" hidden>
+                        <div id="localeSelectOptions" class="filter-options" role="listbox" aria-label="Language options"></div>
+                      </div>
+                    </div>
+                  <div class="field filter-menu">
+                    <select id="timezoneSelect" hidden aria-label="Timezone">
+                      <option value="UTC">UTC</option>
+                      <option value="Asia/Karachi">Karachi</option>
+                      <option value="Asia/Dubai">Dubai</option>
+                      <option value="Europe/London">London</option>
+                      <option value="America/New_York">New York</option>
+                      <option value="America/Los_Angeles">Los Angeles</option>
+                    </select>
+                      <button id="timezoneSelectTrigger" class="filter-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                        <span id="timezoneSelectLabel">UTC</span>
+                        <span class="filter-caret" aria-hidden="true"></span>
+                      </button>
+                      <div id="timezoneSelectDropdown" class="filter-dropdown" hidden>
+                        <div id="timezoneSelectOptions" class="filter-options" role="listbox" aria-label="Timezone options"></div>
+                      </div>
+                    </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div id="events" class="event-grid" aria-live="polite"></div>
+          </section>
       </main>
     </div>
     <div id="searchAnnouncer" class="sr-live" aria-live="polite"></div>
