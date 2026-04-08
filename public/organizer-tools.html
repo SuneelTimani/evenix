@@ -80,6 +80,47 @@
       line-height: 1.7;
       font-size: 0.98rem;
     }
+    .hero-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .hero-plan-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+      color: #dbe3f3;
+      font-size: 0.82rem;
+      font-weight: 500;
+    }
+    .hero-plan-chip strong {
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .hero-plan-chip[data-plan="pro"] {
+      border-color: rgba(245,158,11,0.34);
+      background: rgba(245,158,11,0.12);
+      color: #fde68a;
+      box-shadow: 0 0 0 1px rgba(245,158,11,0.08);
+    }
+    .hero-plan-chip[data-plan="free"] {
+      border-color: rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.05);
+      color: #d6deee;
+    }
     .surface-card,
     .metric-tile {
       border: 1px solid var(--border-default) !important;
@@ -148,6 +189,17 @@
       align-items: center;
       gap: 10px;
     }
+    .plan-note {
+      margin-top: 12px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(245,158,11,0.28);
+      background: rgba(245,158,11,0.08);
+      color: #fde68a;
+      font-size: 0.92rem;
+      line-height: 1.6;
+    }
+    .plan-note[hidden] { display: none; }
     @media (max-width: 900px) {
       .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
@@ -164,9 +216,17 @@
     <div data-role-nav></div>
 
     <header class="hero">
-      <span class="eyebrow">Organizer command center</span>
-      <h1 class="title">Operate your events with analytics, access, and revenue in one place.</h1>
-      <p class="subtitle">Use Evenix organizer tools to monitor trend lines, create promo codes, scan attendees at the door, and export pass data without switching views.</p>
+      <div class="hero-top">
+        <div>
+          <span class="eyebrow">Organizer command center</span>
+          <h1 class="title">Operate your events with analytics, access, and revenue in one place.</h1>
+          <p class="subtitle">Use Evenix organizer tools to monitor trend lines, create promo codes, scan attendees at the door, and export pass data without switching views.</p>
+        </div>
+        <div class="hero-actions">
+          <span id="organizerPlanChip" class="hero-plan-chip" data-plan="free">Current plan: <strong>Free</strong></span>
+          <a id="organizerUpgradeCta" href="/pricing.html" class="cta-btn cta-btn--accent">Upgrade to Pro</a>
+        </div>
+      </div>
     </header>
 
     <div class="page-grid">
@@ -183,6 +243,7 @@
             <button id="refreshAnalyticsBtn" class="cta-btn cta-btn--primary">Refresh Analytics</button>
           </div>
         </div>
+        <div id="orgAnalyticsPlanNote" class="plan-note" hidden></div>
 
         <div class="metric-grid">
           <div class="rounded-lg border border-slate-800 bg-slate-950 p-3 metric-tile">
@@ -246,6 +307,7 @@
             <p class="section-meta">Create and toggle event-specific discounts without leaving the organizer workspace.</p>
           </div>
         </div>
+        <div id="promoPlanNote" class="plan-note" hidden></div>
         <form id="promoForm" class="mt-4 grid gap-2 md:grid-cols-6">
           <select id="promoEvent" class="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm"></select>
           <input id="promoCode" placeholder="Code (e.g. HOLI20)" class="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm">
@@ -307,9 +369,65 @@
     let orgTrendChart = null;
     let orgRevenueChart = null;
     let qnaStream = null;
+    let currentPlan = { tier: "free", features: {}, limits: {} };
 
     function esc(v) {
       return String(v || "").replace(/[&<>"']/g, (s) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[s]));
+    }
+
+    function planHas(featureKey) {
+      return Boolean(currentPlan?.features?.[featureKey]);
+    }
+
+    function applyHeroPlanUi() {
+      const chip = document.getElementById("organizerPlanChip");
+      const upgradeCta = document.getElementById("organizerUpgradeCta");
+      const tier = String(currentPlan?.tier || "free").toLowerCase();
+      const label = currentPlan?.label || (tier ? tier.charAt(0).toUpperCase() + tier.slice(1) : "Free");
+      chip.dataset.plan = tier;
+      chip.innerHTML = `Current plan: <strong>${esc(label)}</strong>`;
+      upgradeCta.hidden = tier === "pro";
+    }
+
+    function applyPlanUi() {
+      const analyticsNote = document.getElementById("orgAnalyticsPlanNote");
+      const promoNote = document.getElementById("promoPlanNote");
+      const analyticsEventSelect = document.getElementById("analyticsEventSelect");
+      const refreshAnalyticsBtn = document.getElementById("refreshAnalyticsBtn");
+      const promoForm = document.getElementById("promoForm");
+      const qnaStatus = document.getElementById("orgQnaStatus");
+      const qnaBoard = document.getElementById("orgQnaBoard");
+      const attendanceBox = document.getElementById("orgAttendancePrediction");
+      const churnBox = document.getElementById("orgChurnPrediction");
+
+      applyHeroPlanUi();
+
+      if (!planHas("advancedMlInsights")) {
+        analyticsNote.hidden = false;
+        analyticsNote.innerHTML = 'Upgrade to Pro to unlock attendance prediction and churn insights for your events. <a href="/pricing.html" class="underline text-white">View plans</a>.';
+        analyticsEventSelect.disabled = true;
+        refreshAnalyticsBtn.disabled = true;
+        attendanceBox.textContent = "Pro feature: attendance prediction is locked on the Free plan.";
+        churnBox.textContent = "Pro feature: churn insights are locked on the Free plan.";
+      } else {
+        analyticsNote.hidden = true;
+        analyticsEventSelect.disabled = false;
+        refreshAnalyticsBtn.disabled = false;
+      }
+
+      if (!planHas("promoCodes")) {
+        promoNote.hidden = false;
+        promoNote.innerHTML = 'Upgrade to Pro to create and manage promo codes. <a href="/pricing.html" class="underline text-white">View plans</a>.';
+        Array.from(promoForm.elements).forEach((el) => { el.disabled = true; });
+      } else {
+        promoNote.hidden = true;
+        Array.from(promoForm.elements).forEach((el) => { el.disabled = false; });
+      }
+
+      if (!planHas("liveQna")) {
+        qnaStatus.textContent = "Live Q&A board is available on Pro plans only.";
+        qnaBoard.innerHTML = '<p class="text-sm text-slate-400">Upgrade to Pro to rank attendee questions in real time.</p>';
+      }
     }
 
     async function ensureAdmin() {
@@ -324,6 +442,8 @@
         window.location.href = "/user.html";
         return false;
       }
+      currentPlan = data.plan || currentPlan;
+      applyPlanUi();
       return true;
     }
 
@@ -433,6 +553,7 @@
     }
 
     async function loadOrganizerMl() {
+      if (!planHas("advancedMlInsights")) return;
       const eventId = document.getElementById("analyticsEventSelect").value;
       const attendanceBox = document.getElementById("orgAttendancePrediction");
       const churnBox = document.getElementById("orgChurnPrediction");
@@ -525,6 +646,7 @@
     }
 
     async function loadOrganizerQna() {
+      if (!planHas("liveQna")) return;
       const eventId = document.getElementById("analyticsEventSelect").value;
       const status = document.getElementById("orgQnaStatus");
       if (!eventId) {
@@ -547,6 +669,7 @@
     }
 
     async function setOrganizerQnaStatus(questionId, status) {
+      if (!planHas("liveQna")) return;
       const eventId = document.getElementById("analyticsEventSelect").value;
       if (!eventId || !questionId) return;
       const res = await fetch(`/api/events/${encodeURIComponent(eventId)}/qna/${encodeURIComponent(questionId)}/status`, {
@@ -566,6 +689,10 @@
     window.setOrganizerQnaStatus = setOrganizerQnaStatus;
 
     async function loadPromos() {
+      if (!planHas("promoCodes")) {
+        document.getElementById("promoList").innerHTML = '<p class="text-sm text-slate-400">Upgrade to Pro to unlock promo codes.</p>';
+        return;
+      }
       const eventId = document.getElementById("promoEvent").value;
       const url = eventId ? `/api/admin/promo-codes?eventId=${encodeURIComponent(eventId)}` : "/api/admin/promo-codes";
       const res = await fetch(url, { headers: headers() });
@@ -588,6 +715,7 @@
     }
 
     async function togglePromo(id) {
+      if (!planHas("promoCodes")) return;
       await fetch(`/api/admin/promo-codes/${encodeURIComponent(id)}/toggle`, { method: "PATCH", headers: headers() });
       await loadPromos();
     }
@@ -595,6 +723,7 @@
 
     document.getElementById("promoForm").addEventListener("submit", async (e) => {
       e.preventDefault();
+      if (!planHas("promoCodes")) return;
       const body = {
         eventId: document.getElementById("promoEvent").value,
         code: document.getElementById("promoCode").value.trim().toUpperCase(),

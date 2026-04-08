@@ -221,6 +221,17 @@
       color: #ddd6fe;
     }
     .recurrence-panel[hidden] { display: none; }
+    .plan-note {
+      margin-bottom: 16px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(245,158,11,0.28);
+      background: rgba(245,158,11,0.08);
+      color: #fde68a;
+      font-size: 0.92rem;
+      line-height: 1.6;
+    }
+    .plan-note[hidden] { display: none; }
     @media (max-width: 980px) {
       .layout { grid-template-columns: 1fr; }
       .side-card { position: static; }
@@ -249,6 +260,7 @@
     <div class="layout">
       <main>
         <section class="card form-card">
+          <div id="planUpgradeNote" class="plan-note" hidden></div>
           <form id="create-event-form" class="stack">
             <div class="section-block">
               <div class="section-title">Basic Information</div>
@@ -391,10 +403,12 @@
     const token = localStorage.getItem("token");
     if (!token) window.location.href = "/login.html";
     let currentCoverImage = "";
+    let currentPlan = { tier: "free", features: {}, limits: {} };
     const recurrenceEnabledEl = document.getElementById("recurrenceEnabled");
     const recurrencePanelEl = document.getElementById("recurrencePanel");
     const recurrenceFrequencyEl = document.getElementById("recurrenceFrequency");
     const recurrenceWeekdaysWrapEl = document.getElementById("recurrenceWeekdaysWrap");
+    const planUpgradeNoteEl = document.getElementById("planUpgradeNote");
 
     function authHeaders(extra = {}) {
       return { Authorization: token, ...extra };
@@ -404,6 +418,22 @@
       const enabled = recurrenceEnabledEl.checked;
       recurrencePanelEl.hidden = !enabled;
       recurrenceWeekdaysWrapEl.hidden = recurrenceFrequencyEl.value !== "weekly";
+    }
+
+    function applyPlanUi() {
+      const isPro = currentPlan?.tier === "pro";
+      recurrenceEnabledEl.disabled = !isPro;
+      if (!isPro) {
+        recurrenceEnabledEl.checked = false;
+        recurrencePanelEl.hidden = true;
+        if (planUpgradeNoteEl) {
+          const eventLimit = Number.isFinite(currentPlan?.limits?.activeEvents) ? currentPlan.limits.activeEvents : 3;
+          planUpgradeNoteEl.hidden = false;
+          planUpgradeNoteEl.innerHTML = `Free plan: up to ${eventLimit} active events. Upgrade to Pro to unlock recurring event series, promo codes, weekly digest, live Q&A, and ML organizer insights. <a href="/pricing.html" class="underline text-white">View plans</a>`;
+        }
+      } else if (planUpgradeNoteEl) {
+        planUpgradeNoteEl.hidden = true;
+      }
     }
 
     function setCoverPreview(src) {
@@ -433,6 +463,8 @@
         window.location.href = "/user.html";
         return false;
       }
+      currentPlan = me.plan || currentPlan;
+      applyPlanUi();
       return true;
     }
 
@@ -577,8 +609,6 @@
   <script src="nav-auth.js?v=20260302a"></script>
 </body>
 </html>
-
-
 
 
 

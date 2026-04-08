@@ -15,6 +15,7 @@ const twilio = require("twilio");
 const { withRetry, createCircuitBreaker } = require("../utils/resilience");
 const { logAdminAction } = require("../utils/audit");
 const { calculateAttendeeReputation } = require("../utils/reputation");
+const { decorateEventLifecycle } = require("../utils/eventLifecycle");
 
 const hasTwilioCreds =
   process.env.TWILIO_ACCOUNT_SID &&
@@ -242,16 +243,49 @@ exports.getAllEvents = async (req, res) => {
   try {
     const { page, pageSize, skip } = parsePagination(req.query, { defaultPageSize: 12, maxPageSize: 100 });
     const includeDeleted = String(req.query.includeDeleted || "").toLowerCase() === "true";
-    const query = includeDeleted
+    const bucket = String(req.query.bucket || "").trim().toLowerCase();
+    const now = new Date();
+    let query = includeDeleted
       ? { createdBy: req.user.id }
       : { createdBy: req.user.id, isDeleted: { $ne: true } };
+
+    if (bucket === "active") {
+      query = {
+        createdBy: req.user.id,
+        isDeleted: { $ne: true },
+        date: { $gte: now }
+      };
+    } else if (bucket === "inactive") {
+      query = {
+        createdBy: req.user.id,
+        $or: [
+          { isDeleted: true },
+          { isDeleted: { $ne: true }, date: { $lt: now } }
+        ]
+      };
+    } else if (bucket === "past") {
+      query = {
+        createdBy: req.user.id,
+        isDeleted: { $ne: true },
+        date: { $lt: now }
+      };
+    } else if (bucket === "archived") {
+      query = {
+        createdBy: req.user.id,
+        isDeleted: true
+      };
+    }
+
     const total = await Event.countDocuments(query);
     const events = await Event.find(query)
       .sort({ date: -1, createdAt: -1 })
       .skip(skip)
       .limit(pageSize)
       .lean();
-    res.json({ items: events, pagination: buildPageMeta({ page, pageSize, total }) });
+    res.json({
+      items: events.map((event) => decorateEventLifecycle(event, now)),
+      pagination: buildPageMeta({ page, pageSize, total })
+    });
   } catch (err) {
     adminServerError(res, "ADMIN_EVENTS_LIST_FAILED", "Failed to load admin events");
   }

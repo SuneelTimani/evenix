@@ -8,6 +8,8 @@ const { notifyAdminEventCreated } = require("../utils/notifications");
 const { logAdminAction } = require("../utils/audit");
 const { subscribe, publish } = require("../utils/commentStream");
 const { decorateEventDynamicPricing } = require("../utils/dynamicPricing");
+const { getPlanLimit, hasPlanFeature } = require("../utils/plans");
+const { decorateEventLifecycle } = require("../utils/eventLifecycle");
 const {
   MAX_RECURRING_OCCURRENCES,
   normalizeRecurrenceInput,
@@ -96,7 +98,7 @@ function buildSeriesMeta(event) {
 }
 
 function decorateEventForClient(event) {
-  const base = decorateEventDynamicPricing(event);
+  const base = decorateEventLifecycle(decorateEventDynamicPricing(event));
   return {
     ...base,
     recurringSeries: buildSeriesMeta(event)
@@ -131,6 +133,14 @@ async function canModerateEventQna(reqUser, eventId) {
   return { ok: true, event };
 }
 
+async function getEventOwnerWithPlan(eventId) {
+  const event = await Event.findOne({ _id: eventId, isDeleted: { $ne: true } }).select("_id createdBy status");
+  if (!event) return { error: "Event not found", status: 404 };
+  const owner = await User.findById(event.createdBy).select("_id role plan");
+  if (!owner) return { error: "Event owner not found", status: 404 };
+  return { event, owner };
+}
+
 exports.getEvents = async (req, res) => {
   try {
     const { category, status, limit, creatorId } = req.query;
@@ -144,6 +154,7 @@ exports.getEvents = async (req, res) => {
       : "published";
     if (effectiveStatus === "published") {
       filters.$or = [{ status: "published" }, { status: { $exists: false } }];
+      filters.date = { $gte: new Date() };
     } else {
       filters.status = effectiveStatus;
     }
@@ -461,6 +472,9 @@ exports.createEvent = async (req, res) => {
       cancelWindowHoursBefore, transferWindowHoursBefore, whatsappTo, recurrence
     } = req.body;
 
+    const owner = await User.findById(req.user?.id).select("_id plan");
+    if (!owner) return res.status(401).json({ error: "Unauthorized" });
+
     const cleanTitle = sanitizeText(title, { min: 3, max: 120 });
     const cleanDescription = sanitizeText(description, { min: 10, max: 3000 });
     const cleanLocation = sanitizeText(location, { min: 2, max: 180 });
@@ -488,6 +502,9 @@ exports.createEvent = async (req, res) => {
     const recurrenceConfig = normalizeRecurrenceInput(recurrence, parsedDate);
     if (recurrenceConfig.error) {
       return res.status(400).json({ error: recurrenceConfig.error });
+    }
+    if (recurrenceConfig.enabled && !hasPlanFeature(owner, "recurring_events")) {
+      return res.status(403).json({ error: "Upgrade to Pro to create recurring event series", code: "PLAN_UPGRADE_REQUIRED" });
     }
 
     const cleanCategory = category ? sanitizeCategory(category) : "Other";
@@ -529,6 +546,22 @@ exports.createEvent = async (req, res) => {
     const totalTicketCapacity = cleanTicketTypes.reduce((sum, t) => sum + t.quantity, 0);
     if (totalTicketCapacity > cleanCapacity) {
       return res.status(400).json({ error: "Total ticket quantity cannot exceed event capacity" });
+    }
+
+    const activeEventsLimit = getPlanLimit(owner, "active_events_limit");
+    if (Number.isFinite(activeEventsLimit)) {
+      const activeEventsCount = await Event.countDocuments({
+        createdBy: owner._id,
+        isDeleted: { $ne: true },
+        status: { $ne: "cancelled" },
+        date: { $gte: new Date() }
+      });
+      if (activeEventsCount >= activeEventsLimit) {
+        return res.status(403).json({
+          error: `Free plan allows up to ${activeEventsLimit} active events. Upgrade to Pro for unlimited publishing.`,
+          code: "PLAN_UPGRADE_REQUIRED"
+        });
+      }
     }
 
     const occurrenceDates = generateRecurringDates(parsedDate, recurrenceConfig);
@@ -785,8 +818,13 @@ exports.getEventQna = async (req, res) => {
     const eventId = String(req.params.id || "").trim();
     if (!eventId) return res.status(400).json({ error: "Event id is required" });
 
-    const event = await Event.findOne({ _id: eventId, isDeleted: { $ne: true } }).select("_id status");
+    const event = await Event.findOne({ _id: eventId, isDeleted: { $ne: true } }).select("_id status createdBy");
     if (!event) return res.status(404).json({ error: "Event not found" });
+
+    const owner = await User.findById(event.createdBy).select("plan");
+    if (!owner || !hasPlanFeature(owner, "live_qna")) {
+      return res.json([]);
+    }
 
     const parsedLimit = Number(req.query.limit);
     const limit = Number.isInteger(parsedLimit) && parsedLimit > 0 ? Math.min(parsedLimit, 100) : 30;
@@ -884,8 +922,12 @@ exports.addEventQnaQuestion = async (req, res) => {
     const text = sanitizeText(req.body?.text, { min: 3, max: 280 });
     if (!eventId || !text) return res.status(400).json({ error: "Valid question text is required (3-280 chars)" });
 
-    const event = await Event.findOne({ _id: eventId, isDeleted: { $ne: true } }).select("_id status");
-    if (!event) return res.status(404).json({ error: "Event not found" });
+    const ownerLookup = await getEventOwnerWithPlan(eventId);
+    if (ownerLookup.error) return res.status(ownerLookup.status).json({ error: ownerLookup.error });
+    const { event, owner } = ownerLookup;
+    if (!hasPlanFeature(owner, "live_qna")) {
+      return res.status(403).json({ error: "Live Q&A is available on Pro plans only", code: "PLAN_UPGRADE_REQUIRED" });
+    }
     if (event.status === "cancelled") return res.status(400).json({ error: "Live Q&A is disabled for cancelled events" });
 
     const user = await User.findById(req.user?.id).select("name profileImage");
@@ -981,6 +1023,12 @@ exports.updateEventQnaStatus = async (req, res) => {
     const nextStatus = String(req.body?.status || "").trim().toLowerCase();
     if (!["open", "answered", "dismissed"].includes(nextStatus)) {
       return res.status(400).json({ error: "Invalid Q&A status" });
+    }
+
+    const ownerLookup = await getEventOwnerWithPlan(eventId);
+    if (ownerLookup.error) return res.status(ownerLookup.status).json({ error: ownerLookup.error });
+    if (!hasPlanFeature(ownerLookup.owner, "live_qna")) {
+      return res.status(403).json({ error: "Live Q&A moderation is available on Pro plans only", code: "PLAN_UPGRADE_REQUIRED" });
     }
 
     const permission = await canModerateEventQna(req.user, eventId);

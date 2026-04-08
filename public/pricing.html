@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pricing | Evenix</title>
+  <meta name="description" content="Choose the Evenix plan that fits your events. Upgrade to Pro for recurring events, live Q&A, promo codes, waitlist automation, and advanced ML insights.">
+  <link rel="icon" type="image/png" href="/assets/web-logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: #080b14;
+      --bg-surface: #0d1117;
+      --bg-elevated: #161b27;
+      --bg-hover: #1e2536;
+      --brand-primary: #7c6af7;
+      --brand-accent: #f59e0b;
+      --brand-glow: rgba(124, 106, 247, 0.16);
+      --text-primary: #f0f2f8;
+      --text-secondary: #8892a4;
+      --border-default: rgba(255,255,255,0.07);
+      --border-strong: rgba(255,255,255,0.12);
+      --font-display: "Instrument Serif", serif;
+      --font-body: "DM Sans", sans-serif;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --error: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font-body);
+      color: var(--text-primary);
+      background:
+        radial-gradient(900px 420px at 8% -8%, rgba(124, 106, 247, 0.18), transparent 58%),
+        radial-gradient(720px 340px at 95% 10%, rgba(245, 158, 11, 0.1), transparent 52%),
+        linear-gradient(180deg, #060912 0%, #0a0f19 48%, #080b14 100%);
+    }
+    .page-shell { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 24px 0 48px; }
+    .hero, .card {
+      border: 1px solid var(--border-default);
+      border-radius: 28px;
+      background: linear-gradient(180deg, rgba(13,17,23,0.96), rgba(13,17,23,0.9));
+      box-shadow: 0 22px 48px rgba(0,0,0,0.22);
+    }
+    .hero { margin-top: 24px; padding: 28px; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 10px; border-radius: 999px; padding: 7px 12px;
+      font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: #c4b5fd;
+      background: rgba(124,106,247,0.08); border: 1px solid rgba(124,106,247,0.32);
+    }
+    .title {
+      margin: 16px 0 8px; font-family: var(--font-display); font-size: clamp(2.6rem, 5vw, 4rem);
+      font-weight: 400; line-height: .95; letter-spacing: -.03em;
+    }
+    .subtitle { margin: 0; max-width: 54rem; color: var(--text-secondary); line-height: 1.7; }
+    .status-note {
+      margin-top: 18px; padding: 14px 16px; border-radius: 16px; font-size: .95rem; line-height: 1.6;
+      border: 1px solid var(--border-default); background: rgba(255,255,255,0.03); color: var(--text-secondary);
+    }
+    .status-note.success { border-color: rgba(16,185,129,.32); background: rgba(16,185,129,.08); color: #bbf7d0; }
+    .status-note.warning { border-color: rgba(245,158,11,.28); background: rgba(245,158,11,.08); color: #fde68a; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 24px; }
+    .card { padding: 26px; }
+    .card.pro { border-color: rgba(124,106,247,0.34); box-shadow: 0 22px 48px rgba(0,0,0,0.22), 0 0 0 1px rgba(124,106,247,0.08); }
+    .plan-name { font-size: 1.4rem; font-weight: 700; }
+    .plan-price { margin-top: 10px; font-family: var(--font-display); font-size: 3.2rem; line-height: 1; }
+    .plan-price small { font-family: var(--font-body); font-size: 1rem; color: var(--text-secondary); }
+    .plan-meta { margin-top: 10px; color: var(--text-secondary); line-height: 1.6; }
+    .feature-list { margin: 18px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+    .feature-list li { display: flex; gap: 10px; align-items: flex-start; color: var(--text-primary); }
+    .feature-list li span { color: #a78bfa; }
+    .actions { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 12px; }
+    .btn {
+      min-height: 46px; border-radius: 12px; border: 1px solid var(--border-default); background: rgba(255,255,255,0.03);
+      color: var(--text-primary); padding: 0 16px; font: inherit; font-weight: 600; cursor: pointer;
+      transition: transform .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease;
+    }
+    .btn:hover { transform: translateY(-1px); border-color: var(--border-strong); background: var(--bg-hover); }
+    .btn-primary { background: var(--brand-primary); color: #fff; border-color: rgba(124,106,247,0.55); box-shadow: 0 0 24px var(--brand-glow); }
+    .btn[disabled] { opacity: .6; cursor: not-allowed; transform: none; }
+    .plan-pill { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; border-radius: 999px; padding: 7px 12px; font-size: .8rem; border: 1px solid rgba(255,255,255,0.08); color: var(--text-secondary);}
+    @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } }
+    @media (max-width: 640px) { .page-shell { width: min(100%, calc(100% - 20px)); } .hero, .card { border-radius: 22px; padding: 20px; } .title { font-size: 2.2rem; } }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div data-role-nav></div>
+
+    <section class="hero">
+      <span class="eyebrow">Plans</span>
+      <h1 class="title">Start free. Upgrade when your events need serious automation.</h1>
+      <p class="subtitle">Evenix Free is built for early traction. Evenix Pro unlocks recurring events, promo codes, live Q&A, and the ML organizer layer that saves time and drives better attendance.</p>
+      <div id="pricingStatus" class="status-note">Checking your current plan...</div>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <div class="plan-name">Free</div>
+        <div class="plan-price">$0 <small>/ forever</small></div>
+        <div class="plan-meta">Best for testing ideas, small communities, and early organizer workflows.</div>
+        <div class="plan-pill">Includes up to 3 active events</div>
+        <ul class="feature-list">
+          <li><span>•</span><div>Basic event creation and ticketing</div></li>
+          <li><span>•</span><div>Manual check-in and attendee list</div></li>
+          <li><span>•</span><div>Public event pages and bookings</div></li>
+          <li><span>•</span><div>Standard reminders and event operations</div></li>
+        </ul>
+        <div class="actions">
+          <button id="freePlanBtn" class="btn" type="button">Current plan</button>
+        </div>
+      </article>
+
+      <article class="card pro">
+        <div class="plan-name">Pro</div>
+        <div class="plan-price">Stripe <small>subscription</small></div>
+        <div class="plan-meta">For organizers who want growth, automation, and premium live-event tools.</div>
+        <div class="plan-pill">Recurring events, promo codes, live Q&A, ML insights</div>
+        <ul class="feature-list">
+          <li><span>•</span><div>Recurring event series</div></li>
+          <li><span>•</span><div>Attendance prediction and churn insights</div></li>
+          <li><span>•</span><div>Promo codes and weekly organizer digest</div></li>
+          <li><span>•</span><div>Live Q&A and premium organizer tooling</div></li>
+        </ul>
+        <div class="actions">
+          <button id="upgradeBtn" class="btn btn-primary" type="button">Upgrade to Pro</button>
+          <button id="manageBillingBtn" class="btn" type="button" hidden>Manage Billing</button>
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <script src="ui-feedback.js"></script>
+  <script>
+    const statusEl = document.getElementById("pricingStatus");
+    const upgradeBtn = document.getElementById("upgradeBtn");
+    const manageBillingBtn = document.getElementById("manageBillingBtn");
+    const freePlanBtn = document.getElementById("freePlanBtn");
+    const query = new URLSearchParams(window.location.search);
+    const token = localStorage.getItem("token");
+    let currentUser = null;
+
+    function authHeaders(extra = {}) {
+      return token ? { Authorization: token, ...extra } : extra;
+    }
+
+    function setStatus(message, kind = "") {
+      statusEl.className = `status-note${kind ? ` ${kind}` : ""}`;
+      statusEl.textContent = message;
+    }
+
+    async function loadPlan() {
+      if (!token) {
+        setStatus("Log in as an organizer/admin to upgrade to Pro.", "warning");
+        upgradeBtn.textContent = "Login to Upgrade";
+        freePlanBtn.textContent = "Free plan";
+        return;
+      }
+
+      const res = await fetch("/api/auth/me", { headers: authHeaders() });
+      if (!res.ok) {
+        localStorage.removeItem("token");
+        setStatus("Your session expired. Please login again to manage billing.", "warning");
+        upgradeBtn.textContent = "Login to Upgrade";
+        return;
+      }
+
+      currentUser = await res.json();
+      if (query.get("upgraded") === "1") {
+        setStatus("Payment successful. Stripe is syncing your Pro plan now.", "success");
+      } else if (query.get("canceled") === "1") {
+        setStatus("Upgrade canceled. Your account is still on its current plan.", "warning");
+      } else if (currentUser.plan?.tier === "pro" && currentUser.plan?.status === "active") {
+        setStatus("You are on Pro. Billing management is available below.", "success");
+      } else {
+        setStatus("You are currently on the Free plan.", "");
+      }
+
+      if (currentUser.role !== "admin") {
+        setStatus("Pro billing is available for organizers/admins only.", "warning");
+        upgradeBtn.disabled = true;
+        upgradeBtn.textContent = "Organizer/Admin only";
+        freePlanBtn.textContent = currentUser.plan?.label || "Current plan";
+        return;
+      }
+
+      if (currentUser.plan?.tier === "pro" && currentUser.plan?.status === "active") {
+        upgradeBtn.hidden = true;
+        manageBillingBtn.hidden = false;
+        freePlanBtn.textContent = "Free plan";
+      } else {
+        upgradeBtn.hidden = false;
+        manageBillingBtn.hidden = true;
+        freePlanBtn.textContent = currentUser.plan?.label || "Free plan";
+      }
+    }
+
+    upgradeBtn.addEventListener("click", async () => {
+      if (!token) {
+        window.location.href = "/login.html";
+        return;
+      }
+      upgradeBtn.disabled = true;
+      upgradeBtn.textContent = "Redirecting...";
+      try {
+        const res = await fetch("/api/billing/pro/checkout-session", {
+          method: "POST",
+          headers: authHeaders({ "Content-Type": "application/json" })
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showToast(body.error || "Failed to start Pro checkout.", "error");
+          setStatus(body.error || "Failed to start Pro checkout.", "warning");
+          upgradeBtn.disabled = false;
+          upgradeBtn.textContent = "Upgrade to Pro";
+          return;
+        }
+        window.location.href = body.url;
+      } catch {
+        showToast("Failed to connect to billing.", "error");
+        setStatus("Failed to connect to billing.", "warning");
+        upgradeBtn.disabled = false;
+        upgradeBtn.textContent = "Upgrade to Pro";
+      }
+    });
+
+    manageBillingBtn.addEventListener("click", async () => {
+      manageBillingBtn.disabled = true;
+      manageBillingBtn.textContent = "Opening...";
+      try {
+        const res = await fetch("/api/billing/portal-session", {
+          method: "POST",
+          headers: authHeaders({ "Content-Type": "application/json" })
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showToast(body.error || "Failed to open billing portal.", "error");
+          manageBillingBtn.disabled = false;
+          manageBillingBtn.textContent = "Manage Billing";
+          return;
+        }
+        window.location.href = body.url;
+      } catch {
+        showToast("Failed to open billing portal.", "error");
+        manageBillingBtn.disabled = false;
+        manageBillingBtn.textContent = "Manage Billing";
+      }
+    });
+
+    loadPlan();
+  </script>
+  <script src="footer.js"></script>
+  <script src="nav-auth.js?v=20260302a"></script>
+</body>
+</html>

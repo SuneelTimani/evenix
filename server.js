@@ -182,6 +182,9 @@ app.use("/api/auth", authRoutes);
 const bookingRoutes = require("./routes/bookingRoutes");
 app.use("/api/bookings", bookingRoutes);
 
+const billingRoutes = require("./routes/billingRoutes");
+app.use("/api/billing", billingRoutes);
+
 const notificationRoutes = require("./routes/notificationRoutes");
 app.use("/api/notifications", notificationRoutes);
 
@@ -205,7 +208,9 @@ app.get("/sitemap.xml", async (req, res) => {
       `${baseUrl}/book.html`,
       `${baseUrl}/blog.html`,
       `${baseUrl}/contact.html`,
-      `${baseUrl}/resources.html`
+      `${baseUrl}/pricing.html`,
+      `${baseUrl}/login.html`,
+      `${baseUrl}/signup.html`
     ];
 
     const events = await Event.find({

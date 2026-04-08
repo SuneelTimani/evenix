@@ -156,11 +156,24 @@ function getEventDetailsUrl(event) {
   return url.toString();
 }
 
+function cityImageFallback(event) {
+  const location = String(event?.location || "").trim();
+  const city = location.split(",")[0]?.trim() || "city";
+  const category = String(event?.category || "event").trim();
+  const seed = encodeURIComponent(String(event?._id || event?.title || city || "event"));
+  const tags = [city, category, "city"]
+    .map((value) => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""))
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(",");
+  return `https://loremflickr.com/1200/800/${tags || "city,event"}?lock=${seed}`;
+}
+
 function getEventImageUrl(event) {
   const src = String(event?.coverImage || "").trim();
   if (/^data:image\//i.test(src)) return src;
   if (/^https?:\/\//i.test(src)) return src;
-  return "";
+  return cityImageFallback(event);
 }
 
 function getCategoryGradient(event) {

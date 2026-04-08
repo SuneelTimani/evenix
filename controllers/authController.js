@@ -18,6 +18,7 @@ const {
   notifySignupOtp
 } = require("../utils/notifications");
 const { calculateAttendeeReputation } = require("../utils/reputation");
+const { normalizePlan } = require("../utils/plans");
 const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -241,7 +242,7 @@ exports.login = async (req, res) => {
       })
     ]);
 
-    res.json({ token: accessToken, role: user.role });
+    res.json({ token: accessToken, role: user.role, plan: normalizePlan(user) });
   } catch (err) {
     res.status(500).json({ error: "Failed to login", code: "LOGIN_FAILED" });
   }
@@ -260,6 +261,7 @@ exports.getMe = async (req, res) => {
     const reputation = calculateAttendeeReputation(history);
     res.json({
       ...user.toObject(),
+      plan: normalizePlan(user),
       followerCount: Array.isArray(user.followers) ? user.followers.length : 0,
       followingCount: Array.isArray(user.following) ? user.following.length : 0,
       reputation
@@ -285,6 +287,7 @@ exports.getPublicUser = async (req, res) => {
       name: user.name || "User",
       profileImage: user.profileImage || "",
       role: user.role || "user",
+      plan: normalizePlan(user),
       followerCount: Array.isArray(user.followers) ? user.followers.length : 0,
       followingCount: Array.isArray(user.following) ? user.following.length : 0,
       reputation
@@ -426,6 +429,7 @@ exports.updateMe = async (req, res) => {
       whatsapp: user.whatsapp || "",
       profileImage: user.profileImage,
       role: user.role,
+      plan: normalizePlan(user),
       ...(nextAccessToken ? { token: nextAccessToken } : {})
     });
   } catch (err) {
@@ -627,7 +631,7 @@ exports.refreshAccessToken = async (req, res) => {
     }
 
     const { accessToken } = setAuthCookies(res, user);
-    res.json({ token: accessToken, role: user.role });
+    res.json({ token: accessToken, role: user.role, plan: normalizePlan(user) });
   } catch (err) {
     res.status(500).json({ error: "Failed to refresh token", code: "REFRESH_FAILED" });
   }

@@ -151,6 +151,8 @@
       .ea-nav-btn-primary { background: var(--brand-primary); border-color: rgba(124,106,247,0.55); color: #fff; box-shadow: 0 0 20px rgba(124, 106, 247, 0.15); }
       .ea-nav-btn-primary:hover { background: #6f5cf3; border-color: rgba(124,106,247,0.8); }
       .ea-nav-badge { display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border-radius: 999px; border: 1px solid rgba(124,106,247,0.28); background: rgba(124,106,247,0.14); color: #c4b5fd; font-size: 0.75rem; font-weight: 600; }
+      .ea-nav-badge[data-plan="free"] { border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.06); color: #d6deee; }
+      .ea-nav-badge[data-plan="pro"] { border-color: rgba(245,158,11,0.32); background: rgba(245,158,11,0.14); color: #fcd34d; box-shadow: 0 0 0 1px rgba(245,158,11,0.08); }
       .ea-nav-icon-btn { position: relative; width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); background: transparent; color: var(--text-primary); cursor: pointer; transition: transform 150ms ease, border-color 150ms ease, background 150ms ease; }
       .ea-nav-icon-btn:hover { background: rgba(255,255,255,0.05); border-color: rgba(124,106,247,0.28); transform: translateY(-1px); }
       .ea-nav-dot { position: absolute; top: 8px; right: 8px; width: 9px; height: 9px; border-radius: 999px; background: var(--brand-accent); box-shadow: 0 0 0 3px rgba(245,158,11,0.12); }
@@ -350,7 +352,12 @@
     if (!user) {
       return `<div class="ea-nav-actions"><a href="/login.html" class="ea-nav-btn">Login</a><a href="/signup.html" class="ea-nav-btn ea-nav-btn-primary">Sign Up Free</a><button type="button" class="ea-nav-icon-btn ea-nav-mobile-trigger" aria-label="Open navigation" aria-expanded="false" data-nav-mobile-toggle>${icon("menu")}</button></div>`;
     }
-    return `<div class="ea-nav-actions">${user.role === "admin" ? '<span class="ea-nav-badge">Admin</span>' : ""}<div style="position:relative"><button type="button" class="ea-nav-icon-btn" aria-label="Open notifications" aria-expanded="false" data-nav-bell>${icon("bell")}${state.notificationsUnread ? '<span class="ea-nav-dot" data-pulse="true" aria-hidden="true"></span>' : ""}</button>${renderNotificationMenu()}</div><div style="position:relative"><button type="button" class="ea-nav-icon-btn ea-nav-avatar-btn" aria-label="Open user menu" aria-expanded="false" data-nav-avatar data-pulse="${sessionStorage.getItem("navPulseSeen") ? "false" : "true"}"><img class="ea-nav-avatar" src="${avatarSrc(user)}" alt="${escapeHtml(user.name || "User")} avatar"></button>${renderUserMenu(user)}</div><button type="button" class="ea-nav-icon-btn ea-nav-mobile-trigger" aria-label="Open navigation" aria-expanded="false" data-nav-mobile-toggle>${icon("menu")}</button></div>`;
+    const showHomePlanBadge = user.role === "admin" && (path === "/" || path === "/index.html");
+    const planLabel = user?.plan?.label || (user?.plan?.tier ? String(user.plan.tier).charAt(0).toUpperCase() + String(user.plan.tier).slice(1) : "");
+    const adminBadge = user.role === "admin" ? '<span class="ea-nav-badge">Admin</span>' : "";
+    const planTier = String(user?.plan?.tier || "").toLowerCase();
+    const planBadge = showHomePlanBadge && planLabel ? `<span class="ea-nav-badge" data-plan="${escapeHtml(planTier)}">${escapeHtml(planLabel)}</span>` : "";
+    return `<div class="ea-nav-actions">${adminBadge}${planBadge}<div style="position:relative"><button type="button" class="ea-nav-icon-btn" aria-label="Open notifications" aria-expanded="false" data-nav-bell>${icon("bell")}${state.notificationsUnread ? '<span class="ea-nav-dot" data-pulse="true" aria-hidden="true"></span>' : ""}</button>${renderNotificationMenu()}</div><div style="position:relative"><button type="button" class="ea-nav-icon-btn ea-nav-avatar-btn" aria-label="Open user menu" aria-expanded="false" data-nav-avatar data-pulse="${sessionStorage.getItem("navPulseSeen") ? "false" : "true"}"><img class="ea-nav-avatar" src="${avatarSrc(user)}" alt="${escapeHtml(user.name || "User")} avatar"></button>${renderUserMenu(user)}</div><button type="button" class="ea-nav-icon-btn ea-nav-mobile-trigger" aria-label="Open navigation" aria-expanded="false" data-nav-mobile-toggle>${icon("menu")}</button></div>`;
   }
 
   function renderMobileOverlay(user) {

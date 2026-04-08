@@ -20,6 +20,7 @@ const router  = express.Router();
 
 const { protect }   = require("../middleware/authMiddleware");
 const { adminOnly } = require("../middleware/adminMiddleware");
+const { requirePlanFeature } = require("../middleware/planMiddleware");
 const Event         = require("../models/Event");
 const Booking       = require("../models/Booking");
 const { decorateEventDynamicPricing } = require("../utils/dynamicPricing");
@@ -104,7 +105,7 @@ router.get("/ml/search", async (req, res) => {
 // ─── 2. Attendance Prediction — Single Event ──────────────────────────────────
 // GET /api/ml/attendance/:eventId
 
-router.get("/ml/attendance/:eventId", protect, adminOnly, async (req, res) => {
+router.get("/ml/attendance/:eventId", protect, adminOnly, requirePlanFeature("advanced_ml_insights", "Upgrade to Pro to unlock attendance prediction"), async (req, res) => {
   try {
     const event = await Event.findById(req.params.eventId).lean();
 
@@ -124,7 +125,7 @@ router.get("/ml/attendance/:eventId", protect, adminOnly, async (req, res) => {
 // ─── 3. Attendance Prediction — Bulk ─────────────────────────────────────────
 // GET /api/ml/attendance?status=published
 
-router.get("/ml/attendance", protect, adminOnly, async (req, res) => {
+router.get("/ml/attendance", protect, adminOnly, requirePlanFeature("advanced_ml_insights", "Upgrade to Pro to unlock attendance prediction"), async (req, res) => {
   try {
     const statusFilter = req.query.status || "published";
 
@@ -144,7 +145,7 @@ router.get("/ml/attendance", protect, adminOnly, async (req, res) => {
 // ─── 4. Churn Detection ───────────────────────────────────────────────────────
 // GET /api/ml/churn/:eventId?risk=high
 
-router.get("/ml/churn/:eventId", protect, adminOnly, async (req, res) => {
+router.get("/ml/churn/:eventId", protect, adminOnly, requirePlanFeature("advanced_ml_insights", "Upgrade to Pro to unlock churn analysis"), async (req, res) => {
   try {
     const { eventId } = req.params;
     const riskFilter  = req.query.risk; // optional: "high" | "medium" | "low"

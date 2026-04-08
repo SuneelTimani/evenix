@@ -9,6 +9,7 @@ const {
   REFRESH_COOKIE_NAME,
   clearAuthCookies
 } = require("../utils/authTokens");
+const { normalizePlan } = require("../utils/plans");
 
 function extractHeaderToken(rawHeader) {
   const value = String(rawHeader || "").trim();
@@ -31,7 +32,7 @@ exports.protect = async (req, res, next) => {
         if (decoded.typ && decoded.typ !== "access") {
           continue;
         }
-        const user = await User.findById(decoded.id).select("_id role tokenVersion isAccountLocked");
+        const user = await User.findById(decoded.id).select("_id role tokenVersion isAccountLocked plan");
         if (!user) continue;
         if (user.isAccountLocked) {
           return authError(res, 403, "Your account is locked. Contact admin support.", "ACCOUNT_LOCKED");
@@ -39,7 +40,7 @@ exports.protect = async (req, res, next) => {
         if (Number(decoded.tv || 0) !== Number(user.tokenVersion || 0)) {
           continue;
         }
-        req.user = { id: String(user._id), role: user.role };
+        req.user = { id: String(user._id), role: user.role, plan: normalizePlan(user) };
         return next();
       } catch {
         // Try next candidate.
@@ -67,7 +68,7 @@ exports.protect = async (req, res, next) => {
       return authError(res, 401, "Invalid refresh token", "INVALID_REFRESH_TOKEN");
     }
 
-    const user = await User.findById(refreshDecoded.id).select("_id role tokenVersion isAccountLocked");
+    const user = await User.findById(refreshDecoded.id).select("_id role tokenVersion isAccountLocked plan");
     if (!user) {
       clearAuthCookies(res);
       return authError(res, 401, "Invalid or expired refresh token", "INVALID_REFRESH_TOKEN");
@@ -83,7 +84,7 @@ exports.protect = async (req, res, next) => {
 
     const { accessToken } = setAuthCookies(res, user);
     res.setHeader("X-Access-Token", accessToken);
-    req.user = { id: String(user._id), role: user.role };
+    req.user = { id: String(user._id), role: user.role, plan: normalizePlan(user) };
     return next();
   } catch {
     authError(res, 401, "Invalid or expired token", "INVALID_TOKEN");

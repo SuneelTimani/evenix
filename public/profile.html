@@ -79,6 +79,46 @@
       line-height: 1.7;
       font-size: 0.98rem;
     }
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .plan-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+      color: #dbe3f3;
+      font-size: 0.82rem;
+      font-weight: 500;
+    }
+    .plan-chip strong {
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .plan-chip[data-plan="pro"] {
+      border-color: rgba(245,158,11,0.34);
+      background: rgba(245,158,11,0.12);
+      color: #fde68a;
+      box-shadow: 0 0 0 1px rgba(245,158,11,0.08);
+    }
+    .plan-chip[data-plan="free"] {
+      border-color: rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.05);
+      color: #d6deee;
+    }
+    .plan-inline-note {
+      margin-top: 10px;
+      color: var(--text-secondary);
+      font-size: 0.84rem;
+      line-height: 1.6;
+    }
     .layout {
       display: grid;
       grid-template-columns: 320px minmax(0, 1fr);
@@ -259,6 +299,9 @@
       <span class="eyebrow">Account settings</span>
       <h1 class="title">Manage your Evenix identity, security, and device reminders.</h1>
       <p class="subtitle">Update your profile, refresh your password, control browser notifications, and review the creators you follow from one unified settings page.</p>
+      <div class="hero-meta">
+        <span id="heroPlanChip" class="plan-chip" data-plan="free">Current plan: <strong>Free</strong></span>
+      </div>
     </header>
 
     <div class="layout">
@@ -286,9 +329,11 @@
           <p><strong>Email:</strong> <span id="emailText">-</span></p>
           <p><strong>WhatsApp:</strong> <span id="whatsappText">-</span></p>
           <p><strong>Role:</strong> <span id="roleText">-</span></p>
+          <p><strong>Plan:</strong> <span id="planText">-</span></p>
           <p><strong>Followers:</strong> <span id="followersCount">0</span></p>
           <p><strong>Following:</strong> <span id="followingCount">0</span></p>
         </div>
+        <p id="planInlineNote" class="plan-inline-note">Your current organizer plan appears here.</p>
 
         <div class="button-row">
           <a href="/login.html" class="btn">Sign In</a>
@@ -379,6 +424,24 @@
         .replace(/'/g, "&#39;");
     }
 
+    function applyPlanUi(user) {
+      const tier = String(user?.plan?.tier || "free").toLowerCase();
+      const label = user?.plan?.label || (tier ? tier.charAt(0).toUpperCase() + tier.slice(1) : "Free");
+      const heroPlanChip = document.getElementById("heroPlanChip");
+      const planText = document.getElementById("planText");
+      const planInlineNote = document.getElementById("planInlineNote");
+
+      heroPlanChip.dataset.plan = tier;
+      heroPlanChip.innerHTML = `Current plan: <strong>${esc(label)}</strong>`;
+      planText.textContent = label;
+
+      if (tier === "pro") {
+        planInlineNote.textContent = "Pro unlocks recurring events, premium automation, live Q&A, and advanced organizer insights.";
+      } else {
+        planInlineNote.innerHTML = 'Free includes the core platform. Upgrade to <a href="/pricing.html" class="text-amber-300 underline underline-offset-4">Pro</a> for recurring events, live Q&amp;A, and organizer automation.';
+      }
+    }
+
     async function refreshPushStatus() {
       const supportEl = document.getElementById("pwaSupportText");
       const permissionEl = document.getElementById("pushPermissionText");
@@ -446,6 +509,7 @@
       document.getElementById("roleBadge").textContent = user.role || "user";
       document.getElementById("followersCount").textContent = Array.isArray(user.followers) ? user.followers.length : 0;
       document.getElementById("followingCount").textContent = Array.isArray(user.following) ? user.following.length : 0;
+      applyPlanUi(user);
       const verifiedBadge = document.getElementById("verifiedBadge");
       const isVerified = user.isEmailVerified !== false;
       verifiedBadge.textContent = isVerified ? "Verified" : "Unverified";

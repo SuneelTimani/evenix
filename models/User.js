@@ -25,6 +25,16 @@ const pushSubscriptionSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const userPlanSchema = new mongoose.Schema(
+  {
+    tier: { type: String, enum: ["free", "pro"], default: "free" },
+    status: { type: String, enum: ["active", "inactive"], default: "active" },
+    startedAt: { type: Date, default: Date.now },
+    renewsAt: { type: Date, default: null }
+  },
+  { _id: false }
+);
+
 const userSchema = new mongoose.Schema({
   name: String,
   email: { type: String, unique: true },
@@ -35,6 +45,9 @@ const userSchema = new mongoose.Schema({
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   savedEvents: { type: [savedEventSchema], default: [] },
   pushSubscriptions: { type: [pushSubscriptionSchema], default: [] },
+  plan: { type: userPlanSchema, default: () => ({ tier: "free", status: "active", startedAt: new Date(), renewsAt: null }) },
+  stripeCustomerId: { type: String, default: "", trim: true },
+  stripeSubscriptionId: { type: String, default: "", trim: true },
   role: { type: String, default: "user" }, // user | admin
   tokenVersion: { type: Number, default: 0 },
   isEmailVerified: { type: Boolean, default: false },

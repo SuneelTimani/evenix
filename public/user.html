@@ -240,6 +240,19 @@
       if (Number.isNaN(date.getTime())) return "TBD";
       return date.toLocaleString([], { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
     }
+    function eventLifecyclePill(event) {
+      const bucket = String(event?.lifecycle?.bucket || "").toLowerCase();
+      const label = event?.lifecycle?.label || (bucket ? bucket.charAt(0).toUpperCase() + bucket.slice(1) : "");
+      if (!label) return "";
+      const tone = bucket === "past"
+        ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+        : bucket === "archived"
+          ? "border-slate-600 bg-slate-800/80 text-slate-200"
+          : bucket === "cancelled"
+            ? "border-rose-500/40 bg-rose-500/10 text-rose-200"
+            : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
+      return `<span class="pill ${tone}">${escapeHtml(label)}</span>`;
+    }
     const statusPill = (status) => `<span class="pill ${String(status || "pending").toLowerCase()}">${escapeHtml(String(status || "pending").replace(/_/g, " "))}</span>`;
     const paymentPill = (status) => `<span class="pill payment-${String(status || "unpaid").toLowerCase()}">${escapeHtml(String(status || "unpaid").toLowerCase())}</span>`;
     function renderEmptyState(title, subtitle) {
@@ -356,7 +369,8 @@
       }
       root.innerHTML = dashboardState.bookings.map((b) => {
         const canManage = ["pending", "confirmed"].includes(String(b.status || "").toLowerCase());
-        return `<article class="item-card"><div class="item-head"><div><h3 class="item-title">${escapeHtml(b.eventId?.title || "Unknown event")}</h3><p class="item-subtitle">${escapeHtml(b.ticketType || "Standard")} x ${escapeHtml(b.quantity || 1)} · ${formatDateTime(b.date)}</p></div><div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end;">${statusPill(b.status)}${paymentPill(b.paymentStatus)}</div></div><div class="meta-row"><span>Cancel cutoff: ${escapeHtml(b.eventId?.cancelWindowHoursBefore ?? 24)}h before event</span><span>Transfer cutoff: ${escapeHtml(b.eventId?.transferWindowHoursBefore ?? 2)}h before event</span></div><div class="actions"><a class="action-btn link" href="/ticket-confirmation.html?id=${encodeURIComponent(String(b._id || ""))}">Open pass</a>${canManage ? `<button class="action-btn danger" type="button" data-cancel-booking="${encodeURIComponent(String(b._id || ""))}">Cancel</button><button class="action-btn" type="button" data-transfer-booking="${encodeURIComponent(String(b._id || ""))}">Transfer</button>` : `<span class="pill">Management window closed</span>`}</div></article>`;
+        const lifecycle = eventLifecyclePill(b.eventId);
+        return `<article class="item-card"><div class="item-head"><div><h3 class="item-title">${escapeHtml(b.eventId?.title || "Unknown event")}</h3><p class="item-subtitle">${escapeHtml(b.ticketType || "Standard")} x ${escapeHtml(b.quantity || 1)} · ${formatDateTime(b.date)}</p></div><div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end;">${lifecycle}${statusPill(b.status)}${paymentPill(b.paymentStatus)}</div></div><div class="meta-row"><span>Cancel cutoff: ${escapeHtml(b.eventId?.cancelWindowHoursBefore ?? 24)}h before event</span><span>Transfer cutoff: ${escapeHtml(b.eventId?.transferWindowHoursBefore ?? 2)}h before event</span></div><div class="actions"><a class="action-btn link" href="/ticket-confirmation.html?id=${encodeURIComponent(String(b._id || ""))}">Open pass</a>${canManage ? `<button class="action-btn danger" type="button" data-cancel-booking="${encodeURIComponent(String(b._id || ""))}">Cancel</button><button class="action-btn" type="button" data-transfer-booking="${encodeURIComponent(String(b._id || ""))}">Transfer</button>` : `<span class="pill">Management window closed</span>`}</div></article>`;
       }).join("");
     }
     function renderRecommended() {
@@ -394,7 +408,8 @@
       root.innerHTML = dashboardState.saved.map((row) => {
         const e = row?.event || {};
         const reminder = Number(row?.reminderHoursBefore || 24);
-        return `<article class="item-card"><div class="item-head"><div><h3 class="item-title">${escapeHtml(e.title || "Untitled event")}</h3><p class="item-subtitle">${escapeHtml(e.location || "TBD")} · ${escapeHtml(e.category || "Other")}</p></div><span class="pill">${formatDate(e.date)}</span></div><div class="meta-row"><span>Current reminder: ${escapeHtml(reminder)}h before event</span></div><div class="inline-reminder"><button type="button" data-save-event="${encodeURIComponent(String(e._id || ""))}" data-reminder="2">2h reminder</button><button type="button" data-save-event="${encodeURIComponent(String(e._id || ""))}" data-reminder="24">24h reminder</button><button type="button" data-save-event="${encodeURIComponent(String(e._id || ""))}" data-reminder="72">72h reminder</button></div><div class="actions"><a class="action-btn link" href="/event-details.html?id=${encodeURIComponent(String(e._id || ""))}">View event</a><button class="action-btn danger" type="button" data-unsave-event="${encodeURIComponent(String(e._id || ""))}">Remove</button></div></article>`;
+        const lifecycle = eventLifecyclePill(e);
+        return `<article class="item-card"><div class="item-head"><div><h3 class="item-title">${escapeHtml(e.title || "Untitled event")}</h3><p class="item-subtitle">${escapeHtml(e.location || "TBD")} · ${escapeHtml(e.category || "Other")}</p></div><div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end;"><span class="pill">${formatDate(e.date)}</span>${lifecycle}</div></div><div class="meta-row"><span>Current reminder: ${escapeHtml(reminder)}h before event</span></div><div class="inline-reminder"><button type="button" data-save-event="${encodeURIComponent(String(e._id || ""))}" data-reminder="2">2h reminder</button><button type="button" data-save-event="${encodeURIComponent(String(e._id || ""))}" data-reminder="24">24h reminder</button><button type="button" data-save-event="${encodeURIComponent(String(e._id || ""))}" data-reminder="72">72h reminder</button></div><div class="actions"><a class="action-btn link" href="/event-details.html?id=${encodeURIComponent(String(e._id || ""))}">View event</a><button class="action-btn danger" type="button" data-unsave-event="${encodeURIComponent(String(e._id || ""))}">Remove</button></div></article>`;
       }).join("");
     }
 

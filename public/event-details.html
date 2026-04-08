@@ -4,6 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Event Details | Evenix</title>
+  <meta name="description" content="Discover event details, schedule, location, tickets, and discussion on Evenix.">
+  <link rel="canonical" href="https://smart-event-system.vercel.app/event-details.html">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Event Details | Evenix">
+  <meta property="og:description" content="Discover event details, schedule, location, tickets, and discussion on Evenix.">
+  <meta property="og:url" content="https://smart-event-system.vercel.app/event-details.html">
+  <meta property="og:image" content="https://smart-event-system.vercel.app/assets/web-logo.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Event Details | Evenix">
+  <meta name="twitter:description" content="Discover event details, schedule, location, tickets, and discussion on Evenix.">
+  <meta name="twitter:image" content="https://smart-event-system.vercel.app/assets/web-logo.png">
   <link rel="icon" type="image/png" href="/assets/web-logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -332,6 +343,8 @@
       const title = `${String(event?.title || "Event")} | Evenix`;
       const descRaw = String(event?.description || "Discover event details, schedule, location, tickets, and discussion.");
       const description = descRaw.length > 155 ? `${descRaw.slice(0, 152)}...` : descRaw;
+      const image = getEventImageUrl(event) || `${window.location.origin}/assets/web-logo.png`;
+      const canonicalUrl = `${window.location.origin}/event-details.html?id=${encodeURIComponent(String(event?._id || ""))}`;
 
       document.title = title;
 
@@ -342,6 +355,36 @@
         document.head.appendChild(meta);
       }
       meta.setAttribute("content", description);
+
+      let canonical = document.querySelector('link[rel="canonical"]');
+      if (!canonical) {
+        canonical = document.createElement("link");
+        canonical.setAttribute("rel", "canonical");
+        document.head.appendChild(canonical);
+      }
+      canonical.setAttribute("href", canonicalUrl);
+
+      const metaDefs = [
+        ["property", "og:type", "website"],
+        ["property", "og:title", title],
+        ["property", "og:description", description],
+        ["property", "og:url", canonicalUrl],
+        ["property", "og:image", image],
+        ["name", "twitter:card", "summary_large_image"],
+        ["name", "twitter:title", title],
+        ["name", "twitter:description", description],
+        ["name", "twitter:image", image]
+      ];
+
+      metaDefs.forEach(([attr, key, value]) => {
+        let node = document.querySelector(`meta[${attr}="${key}"]`);
+        if (!node) {
+          node = document.createElement("meta");
+          node.setAttribute(attr, key);
+          document.head.appendChild(node);
+        }
+        node.setAttribute("content", value);
+      });
     }
 
     function getMapUrls(event) {
@@ -370,6 +413,20 @@
       };
     }
 
+    function lifecycleBadge(event) {
+      const bucket = String(event?.lifecycle?.bucket || "").toLowerCase();
+      const label = event?.lifecycle?.label || (bucket ? bucket.charAt(0).toUpperCase() + bucket.slice(1) : "");
+      if (!label) return "";
+      const tone = bucket === "past"
+        ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+        : bucket === "archived"
+          ? "border-slate-600 bg-slate-800/80 text-slate-200"
+          : bucket === "cancelled"
+            ? "border-rose-500/40 bg-rose-500/10 text-rose-200"
+            : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
+      return `<span class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${tone}">${escapeHtml(label)}</span>`;
+    }
+
     function getAvatarUrl(comment) {
       if (comment.userProfileImage && String(comment.userProfileImage).startsWith("data:image/")) {
         return comment.userProfileImage;
@@ -377,11 +434,24 @@
       return `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.userName || "User")}&background=0f172a&color=f59e0b&size=96`;
     }
 
+    function cityImageFallback(event) {
+      const location = String(event?.location || "").trim();
+      const city = location.split(",")[0]?.trim() || "city";
+      const category = String(event?.category || "event").trim();
+      const seed = encodeURIComponent(String(event?._id || event?.title || city || "event"));
+      const tags = [city, category, "city"]
+        .map((value) => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""))
+        .filter(Boolean)
+        .slice(0, 3)
+        .join(",");
+      return `https://loremflickr.com/1200/800/${tags || "city,event"}?lock=${seed}`;
+    }
+
     function getEventImageUrl(event) {
       const src = String(event?.coverImage || "").trim();
       if (/^data:image\//i.test(src)) return src;
       if (/^https?:\/\//i.test(src)) return src;
-      return "";
+      return cityImageFallback(event);
     }
 
     function renderComments(comments) {
@@ -710,6 +780,7 @@
         ${getEventImageUrl(event) ? `<div class="mb-5 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950"><img src="${escapeHtml(getEventImageUrl(event))}" alt="${escapeHtml(event.title || "Event")}" class="h-72 w-full object-cover"></div>` : ""}
         <p class="text-xs uppercase tracking-[0.18em] text-amber-300">${escapeHtml(event.category || "Other")}</p>
         <h1 class="mt-2 text-3xl font-bold">${escapeHtml(event.title || "Untitled Event")}</h1>
+        ${lifecycleBadge(event) ? `<div class="mt-3">${lifecycleBadge(event)}</div>` : ""}
         <p class="mt-4 text-slate-300">${escapeHtml(event.description || "No description available.")}</p>
         <div class="mt-6 grid gap-3 text-sm md:grid-cols-2">
           <p><span class="text-amber-300">Date:</span> ${escapeHtml(formatDate(event.date))}</p>

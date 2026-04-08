@@ -18,6 +18,7 @@ const {
   notifyWaitlistPromoted
 } = require("../utils/notifications");
 const { calculateAttendeeReputation } = require("../utils/reputation");
+const { handleStripeSubscriptionWebhook } = require("./billingController");
 let Stripe = null;
 try {
   Stripe = require("stripe");
@@ -763,7 +764,10 @@ exports.stripeWebhook = async (req, res) => {
       throw err;
     }
 
-    if (stripeEvent.type === "checkout.session.completed") {
+    const handledSubscriptionEvent = await handleStripeSubscriptionWebhook(stripeEvent);
+    if (handledSubscriptionEvent) {
+      // handled by billing controller
+    } else if (stripeEvent.type === "checkout.session.completed") {
       const session = stripeEvent.data.object;
       await finalizePaidStripeSession(session);
     } else if (stripeEvent.type === "payment_intent.payment_failed") {
