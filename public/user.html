@@ -49,8 +49,8 @@
     .sidebar { display: grid; gap: 18px; align-self: start; position: sticky; top: 100px; }
     .profile-card { background: linear-gradient(180deg, rgba(13,17,23,0.98), rgba(13,17,23,0.86)), radial-gradient(circle at top right, rgba(124,106,247,0.16), transparent 30%); }
     .profile-top { display: flex; align-items: center; gap: 14px; }
-    .avatar-ring { width: 78px; height: 78px; padding: 3px; border-radius: 999px; background: linear-gradient(135deg, rgba(124,106,247,0.95), rgba(245,158,11,0.52)); box-shadow: 0 0 24px var(--brand-glow); flex: 0 0 auto; }
-    .avatar-ring img { width: 100%; height: 100%; border-radius: 999px; object-fit: cover; display: block; background: #111827; }
+    .avatar-ring { width: 78px; height: 78px; min-width: 78px; min-height: 78px; padding: 3px; border-radius: 999px; background: linear-gradient(135deg, rgba(124,106,247,0.95), rgba(245,158,11,0.52)); box-shadow: 0 0 24px var(--brand-glow); flex: 0 0 78px; overflow: hidden; }
+    .avatar-ring img { width: 100%; height: 100%; min-width: 100%; min-height: 100%; border-radius: 999px; object-fit: cover; display: block; background: #111827; }
     .profile-name { margin: 0; font-size: 1.25rem; font-weight: 600; }
     .profile-meta { margin: 6px 0 0; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; }
     .profile-bio { margin: 16px 0 0; color: var(--text-secondary); line-height: 1.6; }
@@ -102,7 +102,7 @@
     .action-btn.warning { border-color: rgba(245,158,11,0.24); color: #fcd34d; }
     .action-btn.link { color: #ddd6fe; }
     .creator-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
-    .creator-avatar { width: 34px; height: 34px; border-radius: 999px; object-fit: cover; background: #111827; border: 1px solid rgba(255,255,255,0.08); }
+    .creator-avatar { width: 34px; height: 34px; min-width: 34px; min-height: 34px; border-radius: 999px; object-fit: cover; background: #111827; border: 1px solid rgba(255,255,255,0.08); flex: 0 0 34px; display: block; }
     .reason-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
     .chip { border-radius: 999px; padding: 5px 10px; font-size: 0.74rem; }
     .chip.violet { background: rgba(124,106,247,0.15); color: #c4b5fd; }
@@ -394,7 +394,7 @@
         return;
       }
       root.innerHTML = dashboardState.following.map((e) => {
-        const creatorName = e?.createdBy?.name || e?.organizer || "Creator";
+        const creatorName = e?.organizerName || e?.createdBy?.name || e?.organizer || "Creator";
         const creatorImage = avatarUrl(creatorName, e?.createdBy?.profileImage || "");
         return `<article class="item-card"><div class="item-head"><div><h3 class="item-title">${escapeHtml(e.title || "Untitled event")}</h3><p class="item-subtitle">${escapeHtml(e.location || "TBD")} · ${formatDate(e.date)}</p></div><span class="pill">Following</span></div><div class="creator-row"><img class="creator-avatar" src="${escapeHtml(creatorImage)}" alt="${escapeHtml(creatorName)}"><div><div style="font-weight:600;">${escapeHtml(creatorName)}</div><div style="color:var(--text-secondary); font-size:0.85rem;">Creator in your feed</div></div></div><div class="actions"><a class="action-btn link" href="/event-details.html?id=${encodeURIComponent(String(e._id || ""))}">View event</a><button class="action-btn warning" type="button" data-save-event="${encodeURIComponent(String(e._id || ""))}" data-reminder="24">Save</button></div></article>`;
       }).join("");
